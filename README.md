@@ -28,7 +28,8 @@ Beginner-friendly: Simplifies complex constructs without sacrificing flexibility
 
 *   **To run the application**:
 *   import code into folder as code.txt
-*   run interpreter
+*   in runner.py set code file to desired one
+*   run runner.py
 
 ## Example Usage
 ```
