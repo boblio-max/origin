@@ -2,7 +2,7 @@ import re
 from sqlite3 import OperationalError
 
 from more_itertools import value_chain
-from parser import ASTNode, StringNode, NumberNode, VarNode, PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode, Parser
+from parser import ASTNode, InputNode, StringNode, NumberNode, VarNode, PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode, Parser
 
 class Interpreter:
     def __init__(self):
@@ -17,6 +17,7 @@ class Interpreter:
             self.env[node.name] = value
         elif isinstance(node, PrintNode):
             print(self.eval(node.expr))
+        
             
         else:
             raise RuntimeError(f"Unknown statement node: {node}")
@@ -64,7 +65,10 @@ class Interpreter:
                 return value - 1
             else:
                 raise RuntimeError("Unknown unary operator")
-            
+        elif isinstance(node, InputNode):
+            if node.prompt:
+                return input(node.prompt)
+            else:
+                return input()
         else:
             raise RuntimeError("Unknown expression node: {node}")
-
