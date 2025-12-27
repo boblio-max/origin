@@ -31,6 +31,13 @@ Beginner-friendly: Simplifies complex constructs without sacrificing flexibility
 *   import code into folder as code.txt
 *   run interpreter
 
+## Example Usage
+```
+let x = 2 + 3 * 4
+print x
+let y = (x + 5) / 2
+print y
+```
 
 ## Future Improvements
 *    GUI containing an origin IDE
