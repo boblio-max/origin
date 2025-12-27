@@ -28,12 +28,21 @@ class BinOpNode(ASTNode):
 
 # Represents variable assignment (let x = expr)
 class AssignNode(ASTNode):
-    def __init__(self, name, value):
-        self.name = name      # variable name as string
-        self.value = value    # ASTNode for value
+    def __init__(self, name, value=None):
+        if value == None:
+            return f"PrintNode({self.name})"
+        else:
+            self.name = name  
+            self.value = value   
+        
     def __repr__(self):
         return f"AssignNode({self.name}, {self.value})"
-
+    
+class StringNode(ASTNode):
+    def __init__(self, value):
+        self.value = value  # string
+    def __repr__(self):
+        return f"StringNode({self.value!r})"
 # Represents print statements (print x)
 class PrintNode(ASTNode):
     def __init__(self, expr):
@@ -91,6 +100,14 @@ class Parser:
             node = self.expr()
             if self.current_token().type == "SYMBOL" and self.current_token().value == ")":
                 self.eat("SYMBOL")  # eat ')'
+            return node
+        elif tok.type == "STRING":
+            self.eat("STRING")
+            # strip quotes if needed
+            value = tok.value
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            return StringNode(value)
         else:
             raise SyntaxError(f"Unexpected token {tok} at {tok.line}:{tok.col}")
         
@@ -141,4 +158,3 @@ class Parser:
 
         return ProgramNode(statements)
 
-    
