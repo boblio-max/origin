@@ -37,6 +37,7 @@ let x = 2 + 3 * 4
 print x
 let y = (x + 5) / 2
 print y
+print "hello world: written in origin code"
 ```
 
 ## Future Improvements
