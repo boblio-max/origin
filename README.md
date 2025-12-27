@@ -37,6 +37,8 @@ let x = 2 + 3 * 4
 print x
 let y = (x + 5) / 2
 print y
+let name = input("Enter your name: ")
+print name
 print "hello world: written in origin code"
 ```
 
