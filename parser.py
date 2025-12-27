@@ -64,7 +64,11 @@ class ProgramNode(ASTNode):
         self.statements = statements  # list of ASTNode
     def __repr__(self):
         return f"ProgramNode({self.statements})"
-
+class InputNode(ASTNode):
+    def __init__(self, prompt=None):
+        self.prompt = prompt  # optional string prompt
+    def __repr__(self):
+        return f"InputNode({self.prompt!r})"
 
 
 class Parser:
@@ -142,6 +146,13 @@ class Parser:
             return self.assignment()
         elif tok.type == "KEYWORD" and tok.value == "print":
             return self.print_stmt()
+        elif tok.type == "KEYWORD" and tok.value == "input":
+            self.eat("KEYWORD")  # eat 'input'
+            prompt = None
+            if self.current_token().type == "STRING":
+                prompt_tok = self.eat("STRING")
+                prompt = prompt_tok.value[1:-1]  # strip quotes
+            return InputNode(prompt)
         else:
             return self.expr()
         
@@ -157,4 +168,3 @@ class Parser:
                 self.eat("NEWLINE")
 
         return ProgramNode(statements)
-
