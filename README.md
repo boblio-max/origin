@@ -16,13 +16,13 @@ Beginner-friendly: Simplifies complex constructs without sacrificing flexibility
 ## Installation
 
 **Clone the repository**:
-    ```bash
+    ```
     git clone github.com
-    cd 
+    cd origin
     ```
 ****
 **Requirements**:
-    ```bash
+    ```
     python
     ```
 ## Usage
