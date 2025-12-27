@@ -1,37 +1,44 @@
-# My Awesome Project
+# Origin Programming Lanuage
 
 ## Description
 
-This project helps users manage tasks efficiently. It provides a simple command-line interface to add, remove, and list tasks, with functionality to sort by additional parameters currently in progress.
+Origin is a python based programming language with syntax designed to be closer to English, letting AI models accurately produce scalable code without errors, while retaining the power of traditional programming languages. It is highly extensible and aims to eventually support ass features that Python provides.
+### Features
+English-like syntax: Write code that reads almost like natural language.
 
+Object-oriented design: Classes, objects, inheritance, and encapsulation.
+
+Efficient execution: Built on Python for fast prototyping.
+
+Extensible: Easily add custom functions, modules, and features.
+
+Beginner-friendly: Simplifies complex constructs without sacrificing flexibility.
 ## Installation
 
-1.  **Clone the repository**:
+**Clone the repository**:
     ```bash
     git clone github.com
-    cd my-awesome-project
+    cd 
     ```
-2.  **Install dependencies** (this example assumes Node.js and npm):
+**Requirements**:
     ```bash
-    npm install
+    python
     ```
-3.  **Start the application**:
-    ```bash
-    npm start
-    ```
-
 ## Usage
 
-*   **To run the application**: Open your terminal and run `npm start`.
-*   **To view tasks**: Use the built-in command `list-tasks`.
-*   **To run tests**:
-    ```bash
-    npm test
-    ```
+*   **To run the application**:
+*   import code into folder as code.txt
+*   run interpreter
 
+
+## Future Improvements
+*    GUI containing an origin IDE
+*    support for python libraries and dependencies
+
+  
 ## Contributing
 
-Feel free to submit pull requests or open issues. Please read `CONTRIBUTING.md` for details on our code of conduct and the process for submitting pull requests.
+Feel free to submit pull requests or open issues.
 
 ## License
 
@@ -39,5 +46,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-*   **Project Link**: [github.com](github.com)
-*   **Email**: [example@domain.com](mailto:example@domain.com)
+*   **Email**: [nikhilmahankali56@gmail.com](mailto:nikhilmahankali56@gmail.com)
