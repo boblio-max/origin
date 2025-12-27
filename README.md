@@ -1,4 +1,4 @@
-# Origin Programming Lanuage - IN PROGRESS
+# Origin Programming Lanuage
 
 ## Description
 
