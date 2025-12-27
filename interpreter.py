@@ -2,7 +2,7 @@ import re
 from sqlite3 import OperationalError
 
 from more_itertools import value_chain
-from parser import ASTNode, NumberNode, VarNode, PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode, Parser
+from parser import ASTNode, StringNode, NumberNode, VarNode, PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode, Parser
 
 class Interpreter:
     def __init__(self):
@@ -27,7 +27,7 @@ class Interpreter:
         
         elif isinstance(node, VarNode):
             if node.name not in self.env:
-                raise NameError("Undefined variable: {node.name}")
+                print(node.name)
             
             return self.env[node.name]
         
@@ -49,7 +49,8 @@ class Interpreter:
                 return left % right
             else:
                 raise RuntimeError("Operation not found")
-            
+        elif isinstance(node, StringNode):
+            return node.value
         elif isinstance(node, UnaryOpNode):
             value = self.eval(node.node)
             if node.op == "+":
@@ -66,3 +67,4 @@ class Interpreter:
             
         else:
             raise RuntimeError("Unknown expression node: {node}")
+
