@@ -17,8 +17,7 @@ Beginner-friendly: Simplifies complex constructs without sacrificing flexibility
 
 **Clone the repository**:
     ```
-    git clone github.com
-    cd origin
+    git clone https://github.com/boblio-max/origin.git
     ```
 ****
 **Requirements**:
