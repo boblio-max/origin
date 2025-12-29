@@ -33,13 +33,33 @@ Beginner-friendly: Simplifies complex constructs without sacrificing flexibility
 
 ## Example Usage
 ```
-let x = 2 + 3 * 4
-print x
-let y = (x + 5) / 2
-print y
-let name = input("Enter your name: ")
-print name
-print "hello world: written in origin code"
+print "WELCOME TO THE CALCULATOR"
+print "This was written in Origin code!"
+
+# Handles inputs and type casting
+let x = input "Enter a number: "
+let x = float(x)
+let y = input "Enter a number: "
+let y = float(y)
+
+# Lets User choose input
+let op = input "Enter the operation(+, -, *, /): "
+
+#handles printing of once operation is chosen
+print "Your number is..."
+if op == "+" {
+    print x + y
+} 
+elif op == "-" {
+    print x - y
+} 
+elif op == "*" {
+    print x * y
+} 
+elif op == "/" {
+    print x / y
+}
+
 ```
 
 ## Future Improvements
