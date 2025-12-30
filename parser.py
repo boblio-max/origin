@@ -33,13 +33,27 @@ class CastNode(ASTNode):
     def __init__(self, cast_type, value):
         self.cast_type = cast_type
         self.value = value
+class RangeNode(ASTNode):
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
 
 class ListNode(ASTNode):
     def __init__(self, elements):
         self.elements = elements
     def __repr__(self):
         return f"ListNode({self.elements})"
+    
+class IndexNode(ASTNode):
+    def __init__(self, collection, index):
+        self.collection = collection
+        self.index = index
 
+class IndexAssignNode(ASTNode):
+    def __init__(self, collection, index, value):
+        self.collection = collection
+        self.index = index
+        self.value = value
 
 class BinOpNode(ASTNode):
     def __init__(self, left, op, right):
@@ -75,6 +89,12 @@ class BlockNode(ASTNode):
     def __repr__(self):
         return f"BlockNode({self.statements})"
 
+class ImportNode:
+    def __init__(self, name_token):
+        self.name = name_token  
+
+    def __repr__(self):
+        return f"ImportNode({self.name})"
 
 class IfNode(ASTNode):
     def __init__(self, condition, then_body, elif_nodes=None, else_body=None):
@@ -121,7 +141,6 @@ class ProgramNode(ASTNode):
     def __repr__(self):
         return f"ProgramNode({self.statements})"
 
-
 # =====================
 # PARSER
 # =====================
@@ -160,10 +179,23 @@ class Parser:
         if tok.type == "STRING":
             self.eat("STRING")
             return StringNode(tok.value[1:-1])
-
+        if tok.type == "KEYWORD" and tok.value == "range":
+            self.eat("KEYWORD")          
+            self.eat("SYMBOL")         
+            start = self.comparison()
+            self.eat("SYMBOL")          
+            end = self.comparison()
+            self.eat("SYMBOL")          
+            return RangeNode(start, end)
         if tok.type == "IDENT":
-            self.eat("IDENT")
-            return VarNode(tok.value)
+            node = VarNode(self.eat("IDENT").value)
+
+            while self.current_token().type == "BRACKET" and self.current_token().value == "[":
+                self.eat("BRACKET")
+                index = self.comparison()
+                self.eat("BRACKET")
+                node = IndexNode(node, index)
+            return node
 
         if tok.type == "KEYWORD" and tok.value == "input":
             self.eat("KEYWORD")
@@ -247,7 +279,6 @@ class Parser:
 
         self.eat("BRACKET")  # }
         return BlockNode(statements)
-
     def if_stmt(self):
         self.eat("KEYWORD")  # 'if'
         condition = self.comparison()
@@ -298,7 +329,22 @@ class Parser:
         body = self.block()
         return ForNode(var_name, iterable, body)
 
+    def import_stmt(self):
+        self.eat("KEYWORD")
+        name_token = self.eat("IDENT")
+        return ImportNode(name_token)
     def statement(self):
+        if self.current_token().type == "IDENT":
+            start_pos = self.pos
+
+            target = self.factor()
+
+            if isinstance(target, IndexNode) and self.current_token().type == "ASSIGN":
+                self.eat("ASSIGN")
+                value = self.comparison()
+                return IndexAssignNode(target.collection, target.index, value)
+
+            self.pos = start_pos
         self.skip_newlines()
         tok = self.current_token()
 
@@ -314,6 +360,8 @@ class Parser:
             return self.while_stmt()
         if tok.type == "KEYWORD" and tok.value == "for":
             return self.for_stmt()
+        if tok.type == "KEYWORD" and tok.value == "import":
+            return self.import_stmt()
 
         return self.comparison()
 
