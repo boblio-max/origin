@@ -17,7 +17,7 @@ TOKEN_REGEX = [
     (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"),
     (r"\[|\]|\{|\}",         "BRACKET"),
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),
-    (r"\b(fn|if|elif|else|for|while|return|int|str|float|let|const|in|print|break|input|continue|import|from|class|try|except|raise|pass|yield|lambda|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|interface|pub|priv|అడ్మిన్)\b", "KEYWORD"),
+    (r"\b(fn|if|elif|else|for|while|return|int|len|str|float|let|const|in|print|true|false|break|input|continue|import|from|class|try|except|raise|pass|yield|lambda|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|interface|pub|priv|అడ్మిన్)\b", "KEYWORD"),
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"),
 ]
 # Reduces redundancy and time efficiency of the regex
