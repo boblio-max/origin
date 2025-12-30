@@ -1,74 +1,87 @@
-import re
-from sqlite3 import OperationalError
-
-from more_itertools import value_chain
-from parser import ASTNode, InputNode, StringNode, NumberNode, VarNode, PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode, Parser
+from parser import (
+    ASTNode, InputNode, StringNode, NumberNode, VarNode, 
+    PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode,
+    IfNode, WhileNode, ForNode, BlockNode, ListNode, CastNode,
+    ElifNode, ImportNode, IndexNode, IndexAssignNode, RangeNode
+)
 
 class Interpreter:
-    def __init__(self):
-        self.env = {}
-        
-    def run(self, node):
+    def generate(self, node):
         if isinstance(node, ProgramNode):
-            for stmt in node.statements:
-                self.run(stmt)
+            return "\n".join(self.generate(stmt) for stmt in node.statements)
+
+        elif isinstance(node, BlockNode):
+            return "\n".join(self.generate(stmt) for stmt in node.statements)
+
         elif isinstance(node, AssignNode):
-            value = self.eval(node.value)
-            self.env[node.name] = value
+            return f"{node.name} = {self.generate(node.value)}"
         elif isinstance(node, PrintNode):
-            print(self.eval(node.expr))
-        
-            
-        else:
-            raise RuntimeError(f"Unknown statement node: {node}")
-    
-    def eval(self, node):
-        if isinstance(node, NumberNode):
-            return node.value
-        
-        elif isinstance(node, VarNode):
-            if node.name not in self.env:
-                print(node.name)
-            
-            return self.env[node.name]
-        
-        elif isinstance(node, BinOpNode):
-            left = self.eval(node.left)
-            right = self.eval(node.right)
-            
-            if node.op == "+":
-                return left + right
-            if node.op == "-":
-                return left - right
-            if node.op == "*":
-                return left * right
-            if node.op == "/":
-                return left / right
-            if node.op == "%":
-                if right == 0:
-                    raise ZeroDivisionError("Division by zero")
-                return left % right
-            else:
-                raise RuntimeError("Operation not found")
+            return f"print({self.generate(node.expr)})"
+
+        elif isinstance(node, NumberNode):
+            return str(node.value)
+
         elif isinstance(node, StringNode):
-            return node.value
+            return repr(node.value)
+
+        elif isinstance(node, VarNode):
+            return node.name
+
+        elif isinstance(node, ListNode):
+            return f"[{', '.join(self.generate(el) for el in node.elements)}]"
+        elif isinstance(node, BinOpNode):
+            return f"({self.generate(node.left)} {node.op} {self.generate(node.right)})"
+
         elif isinstance(node, UnaryOpNode):
-            value = self.eval(node.node)
-            if node.op == "+":
-                return +value
-            elif node.op == "-":
-                return -value
-            
-            elif node.op == "++":
-                return value + 1
-            elif node.op == "--":
-                return value - 1
-            else:
-                raise RuntimeError("Unknown unary operator")
+            return f"({node.op}{self.generate(node.node)})"
+
         elif isinstance(node, InputNode):
             if node.prompt:
-                return input(node.prompt)
+                return f"input({self.generate(node.prompt)})"
             else:
-                return input()
+                return "input()"
+
+        elif isinstance(node, IfNode):
+            code = f"if {self.generate(node.condition)}:\n"
+            then_body = self.indent_block(self.generate(node.then_body))
+            code += then_body
+            if node.else_body:
+                code += "\nelse:\n"
+                else_body = self.indent_block(self.generate(node.else_body))
+                code += else_body
+            return code
+        elif isinstance(node, ElifNode):
+            code = f"elif {self.generate(node.condition)}:\n"
+            then_body = self.indent_block(self.generate(node.then_body))
+            code += then_body
+            if node.else_body:
+                code += "\nelse:\n"
+                else_body = self.indent_block(self.generate(node.else_body))
+                code += else_body
+            return code
+        elif isinstance(node, WhileNode):
+            code = f"while {self.generate(node.condition)}:\n"
+            body = self.indent_block(self.generate(node.body))
+            code += body
+            return code
+        if isinstance(node, IndexNode):
+            return f"{self.generate(node.collection)}[{self.generate(node.index)}]"
+        elif isinstance(node, RangeNode):
+            return f"range({self.generate(node.start)}, {self.generate(node.end)})"
+        elif isinstance(node, ForNode):
+            code = f"for {node.var_name} in {self.generate(node.iterable)}:\n"
+            body = self.indent_block(self.generate(node.body))
+            code += body
+            return code
+        elif isinstance(node, CastNode):
+            return f"{node.cast_type}({self.generate(node.value)})"
+        
+        elif isinstance(node, ImportNode):
+            return f"import {node.name.value}"
         else:
-            raise RuntimeError("Unknown expression node: {node}")
+            raise RuntimeError(f"Unknown node type: {node}")
+
+    @staticmethod
+    def indent_block(code, indent=4):
+        spaces = " " * indent
+        return "\n".join(spaces + line if line.strip() else line for line in code.split("\n"))
