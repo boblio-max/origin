@@ -1,149 +1,6 @@
+from pandas import value_counts
 from lexer import Token
-
-
-# =====================
-# AST NODES
-# =====================
-
-class ASTNode:
-    pass
-
-
-class NumberNode(ASTNode):
-    def __init__(self, value):
-        self.value = value
-    def __repr__(self):
-        return f"NumberNode({self.value})"
-
-
-class StringNode(ASTNode):
-    def __init__(self, value):
-        self.value = value
-    def __repr__(self):
-        return f"StringNode({self.value!r})"
-
-
-class VarNode(ASTNode):
-    def __init__(self, name):
-        self.name = name
-    def __repr__(self):
-        return f"VarNode({self.name})"
-
-class CastNode(ASTNode):
-    def __init__(self, cast_type, value):
-        self.cast_type = cast_type
-        self.value = value
-class RangeNode(ASTNode):
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
-
-class ListNode(ASTNode):
-    def __init__(self, elements):
-        self.elements = elements
-    def __repr__(self):
-        return f"ListNode({self.elements})"
-    
-class IndexNode(ASTNode):
-    def __init__(self, collection, index):
-        self.collection = collection
-        self.index = index
-
-class IndexAssignNode(ASTNode):
-    def __init__(self, collection, index, value):
-        self.collection = collection
-        self.index = index
-        self.value = value
-
-class BinOpNode(ASTNode):
-    def __init__(self, left, op, right):
-        self.left, self.op, self.right = left, op, right
-    def __repr__(self):
-        return f"BinOpNode({self.left}, {self.op!r}, {self.right})"
-
-
-class AssignNode(ASTNode):
-    def __init__(self, name, value):
-        self.name, self.value = name, value
-    def __repr__(self):
-        return f"AssignNode({self.name}, {self.value})"
-
-
-class PrintNode(ASTNode):
-    def __init__(self, expr):
-        self.expr = expr
-    def __repr__(self):
-        return f"PrintNode({self.expr})"
-
-
-class InputNode(ASTNode):
-    def __init__(self, prompt=None):
-        self.prompt = prompt
-    def __repr__(self):
-        return f"InputNode({self.prompt})"
-
-
-class BlockNode(ASTNode):
-    def __init__(self, statements):
-        self.statements = statements
-    def __repr__(self):
-        return f"BlockNode({self.statements})"
-
-class ImportNode:
-    def __init__(self, name_token):
-        self.name = name_token  
-
-    def __repr__(self):
-        return f"ImportNode({self.name})"
-
-class IfNode(ASTNode):
-    def __init__(self, condition, then_body, elif_nodes=None, else_body=None):
-        self.condition = condition
-        self.then_body = then_body
-        self.elif_nodes = elif_nodes or []
-        self.else_body = else_body
-    def __repr__(self):
-        return f"IfNode({self.condition}, {self.then_body},{self.elif_nodes} {self.else_body})"
-
-class ElifNode(ASTNode):
-    def __init__(self, condition, then_body, else_body=None):
-        self.condition = condition
-        self.then_body = then_body
-        self.else_body = else_body
-    def __repr__(self):
-        return f"ElifNode({self.condition}, {self.then_body}, {self.else_body})"
-
-class WhileNode(ASTNode):
-    def __init__(self, condition, body):
-        self.condition = condition
-        self.body = body
-    def __repr__(self):
-        return f"WhileNode({self.condition}, {self.body})"
-
-
-class ForNode(ASTNode):
-    def __init__(self, var_name, iterable, body):
-        self.var_name = var_name
-        self.iterable = iterable
-        self.body = body
-    def __repr__(self):
-        return f"ForNode({self.var_name}, {self.iterable}, {self.body})"
-
-class UnaryOpNode(ASTNode):
-    def __init__(self, op, node):
-        self.op, self.node = op, node
-    def __repr__(self):
-        return f"UnaryOpNode({self.op!r}, {self.node})"
-    
-class ProgramNode(ASTNode):
-    def __init__(self, statements):
-        self.statements = statements
-    def __repr__(self):
-        return f"ProgramNode({self.statements})"
-
-# =====================
-# PARSER
-# =====================
+from classes import *
 
 class Parser:
     def __init__(self, tokens):
@@ -162,7 +19,6 @@ class Parser:
             return tok
         raise SyntaxError(f"Expected {type_}, got {tok.type} ({tok.value})")
 
-    # -------- EXPRESSIONS --------
 
     def factor(self):
         self.skip_newlines()
@@ -203,7 +59,8 @@ class Parser:
             if self.current_token().type == "STRING":
                 prompt = StringNode(self.eat("STRING").value[1:-1])
             return InputNode(prompt)
-
+            
+        
         if tok.type == "BRACKET" and tok.value == "(":
             self.eat("BRACKET")
             node = self.comparison()
@@ -218,7 +75,22 @@ class Parser:
             arg = self.comparison()
             self.eat("SYMBOL")  # )
             return CastNode(func_name, arg)
+        
+        if tok.type == "KEYWORD" and tok.value == "true":
+            self.eat("KEYWORD")
+            return BoolNode(True)
+
+        if tok.type == "KEYWORD" and tok.value == "false":
+            self.eat("KEYWORD")
+            return BoolNode(False)
+        if tok.type == "KEYWORD" and tok.value == "len":
+            self.eat("KEYWORD") 
+            self.eat("SYMBOL") 
+            expr_node = self.comparison() 
+            self.eat("SYMBOL")  
+            return LenNode(expr_node)
         raise SyntaxError(f"Unexpected token {tok}")
+
 
     def list_literal(self):
         elements = []
@@ -255,10 +127,8 @@ class Parser:
             return BinOpNode(node, op, right)
         return node
 
-    # -------- STATEMENTS --------
-
     def assignment(self):
-        self.eat("KEYWORD")  # let
+        self.eat("KEYWORD")
         name = self.eat("IDENT").value
         self.eat("ASSIGN")
         value = self.comparison()
@@ -267,10 +137,10 @@ class Parser:
     def print_stmt(self):
         self.eat("KEYWORD")
         return PrintNode(self.comparison())
-
+    
     def block(self):
         statements = []
-        self.eat("BRACKET")  # {
+        self.eat("BRACKET")  
 
         while not (self.current_token().type == "BRACKET" and self.current_token().value == "}"):
             statements.append(self.statement())
@@ -279,42 +149,38 @@ class Parser:
 
         self.eat("BRACKET")  # }
         return BlockNode(statements)
+    
+    def len_stmt(self):
+        self.eat("KEYWORD")
+        self.eat("SYMBOL")
+        value = self.comparison()
+        self.eat("SYMBOL")
+        return LenNode(value_counts)
     def if_stmt(self):
         self.eat("KEYWORD")  # 'if'
         condition = self.comparison()
         then_body = self.block()
-        elif_nodes = []
 
-        # while self.current_token().type == "KEYWORD" and self.current_token().value == "elif":
-        #     self.eat("KEYWORD")
-        #     elif_condition = self.comparison()
-        #     elif_body = self.block()
-        #     elif_nodes.append(ElifNode(elif_condition, elif_body))
+        elif_nodes = []
+        while True:
+            self.skip_newlines()  # skip all newlines before next keyword
+            tok = self.current_token()
+            if tok.type == "KEYWORD" and tok.value == "elif":
+                self.eat("KEYWORD")
+                elif_condition = self.comparison()
+                elif_body = self.block()
+                elif_nodes.append(ElifNode(elif_condition, elif_body))
+            else:
+                break
 
         else_body = None
+        self.skip_newlines()
         if self.current_token().type == "KEYWORD" and self.current_token().value == "else":
             self.eat("KEYWORD")
             else_body = self.block()
 
         return IfNode(condition, then_body, elif_nodes, else_body)
-    def elif_stmt(self):
-        self.eat("KEYWORD")  # 'if'
-        condition = self.comparison()
-        then_body = self.block()
-        elif_nodes = []
 
-        # while self.current_token().type == "KEYWORD" and self.current_token().value == "elif":
-        #     self.eat("KEYWORD")
-        #     elif_condition = self.comparison()
-        #     elif_body = self.block()
-        #     elif_nodes.append(ElifNode(elif_condition, elif_body))
-
-        else_body = None
-        if self.current_token().type == "KEYWORD" and self.current_token().value == "else":
-            self.eat("KEYWORD")
-            else_body = self.block()
-
-        return ElifNode(condition, then_body, else_body)
     def while_stmt(self):
         self.eat("KEYWORD")
         condition = self.comparison()
@@ -328,41 +194,88 @@ class Parser:
         iterable = self.comparison()
         body = self.block()
         return ForNode(var_name, iterable, body)
-
+    def unary(self):
+        tok = self.current_token()
+        if tok.type == "UNARY" or (tok.type == "LOGIC" and tok.value in ("not", "!")):
+            op = self.eat(tok.type).value
+            node = self.unary()  # recursive to support stacked unary ops
+            return UnaryOpNode(op, node)
+        return self.factor()
+    def logic(self):
+        node = self.comparison()
+        while self.current_token().type == "LOGIC":
+            op = self.eat("LOGIC").value
+            right = self.comparison()
+            node = LogicOpNode(node, op, right)
+        return node
     def import_stmt(self):
         self.eat("KEYWORD")
         name_token = self.eat("IDENT")
         return ImportNode(name_token)
+    
+    def call(self):
+        node = self.factor()
+        while self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+            self.eat("SYMBOL")
+            arg = self.comparison()
+            self.eat("SYMBOL")
+            node = CallNode(node.name if isinstance(node, VarNode) else node, arg)
+        return node
+    def special_expr(self):
+        node = self.logic()
+        while self.current_token().type == "SPECIAL":
+            op = self.eat("SPECIAL").value
+            right = self.logic()
+            node = SpecialOpNode(node, op, right)
+        return node
+
     def statement(self):
         if self.current_token().type == "IDENT":
-            start_pos = self.pos
-
+            start_pos = self.pos 
             target = self.factor()
 
             if isinstance(target, IndexNode) and self.current_token().type == "ASSIGN":
                 self.eat("ASSIGN")
                 value = self.comparison()
                 return IndexAssignNode(target.collection, target.index, value)
-
+            if isinstance(target, VarNode) and self.current_token().type == "ASSIGN_OP":
+                op = self.eat("ASSIGN_OP").value
+                value = self.comparison()
+                return CompoundAssignNode(target.name, op, value)
             self.pos = start_pos
+        
+        
         self.skip_newlines()
         tok = self.current_token()
-
-        if tok.type == "KEYWORD" and tok.value == "let":
-            return self.assignment()
-        if tok.type == "KEYWORD" and tok.value == "print":
-            return self.print_stmt()
-        if tok.type == "KEYWORD" and tok.value == "if":
-            return self.if_stmt()
-        if tok.type == "KEYWORD" and tok.value == "elif":
-            return self.elif_stmt()
-        if tok.type == "KEYWORD" and tok.value == "while":
-            return self.while_stmt()
-        if tok.type == "KEYWORD" and tok.value == "for":
-            return self.for_stmt()
-        if tok.type == "KEYWORD" and tok.value == "import":
-            return self.import_stmt()
-
+        if tok.type == "KEYWORD":
+            if tok.value in ("elif", "else"):
+                raise SyntaxError(f"Unexpected '{tok.value}' outside of if statement")
+            if tok.value in ("let", "const"):
+                return self.assignment()
+            if tok.value == "print":
+                return self.print_stmt()
+            if tok.value == "if":
+                return self.if_stmt()
+            if tok.value == "while":
+                return self.while_stmt()
+            if tok.value == "for":
+                return self.for_stmt()
+            if tok.value == "len": 
+                return self.len_stmt()
+            if tok.value == "import":
+                return self.import_stmt()
+            if tok.value == "break":
+                self.eat("KEYWORD")
+                return BreakNode()
+            if tok.value == "continue":
+                self.eat("KEYWORD")
+                return ContinueNode()
+            if tok.type == "KEYWORD" and tok.value == "return":
+                self.eat("KEYWORD")
+                return ReturnNode(self.comparison())
+            if tok.type == "KEYWORD" and tok.value == "yield":
+                self.eat("KEYWORD")
+                return YieldNode(self.comparison())
         return self.comparison()
 
     def program(self):
