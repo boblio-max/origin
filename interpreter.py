@@ -1,9 +1,4 @@
-from parser import (
-    ASTNode, InputNode, StringNode, NumberNode, VarNode, 
-    PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode,
-    IfNode, WhileNode, ForNode, BlockNode, ListNode, CastNode,
-    ElifNode, ImportNode, IndexNode, IndexAssignNode, RangeNode
-)
+from classes import *
 
 class Interpreter:
     def generate(self, node):
@@ -12,7 +7,7 @@ class Interpreter:
 
         elif isinstance(node, BlockNode):
             return "\n".join(self.generate(stmt) for stmt in node.statements)
-
+        
         elif isinstance(node, AssignNode):
             return f"{node.name} = {self.generate(node.value)}"
         elif isinstance(node, PrintNode):
@@ -40,31 +35,31 @@ class Interpreter:
                 return f"input({self.generate(node.prompt)})"
             else:
                 return "input()"
-
+        
         elif isinstance(node, IfNode):
             code = f"if {self.generate(node.condition)}:\n"
-            then_body = self.indent_block(self.generate(node.then_body))
-            code += then_body
+            code += self.indent_block(self.generate(node.then_body))
+
+            for elif_node in node.elif_nodes:
+                code += "\nelif " + self.generate(elif_node.condition) + ":\n"
+                code += self.indent_block(self.generate(elif_node.then_body))
+
+            
             if node.else_body:
                 code += "\nelse:\n"
-                else_body = self.indent_block(self.generate(node.else_body))
-                code += else_body
+                code += self.indent_block(self.generate(node.else_body))
+
             return code
-        elif isinstance(node, ElifNode):
-            code = f"elif {self.generate(node.condition)}:\n"
-            then_body = self.indent_block(self.generate(node.then_body))
-            code += then_body
-            if node.else_body:
-                code += "\nelse:\n"
-                else_body = self.indent_block(self.generate(node.else_body))
-                code += else_body
-            return code
+        
+        elif isinstance(node, LenNode):
+            value = self.generate(node.value)
+            return f"len({value})"
         elif isinstance(node, WhileNode):
             code = f"while {self.generate(node.condition)}:\n"
             body = self.indent_block(self.generate(node.body))
             code += body
             return code
-        if isinstance(node, IndexNode):
+        elif isinstance(node, IndexNode):
             return f"{self.generate(node.collection)}[{self.generate(node.index)}]"
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
@@ -78,6 +73,9 @@ class Interpreter:
         
         elif isinstance(node, ImportNode):
             return f"import {node.name.value}"
+    
+        elif isinstance(node, BoolNode):
+            return "True" if node.value else "False"
         else:
             raise RuntimeError(f"Unknown node type: {node}")
 
