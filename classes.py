@@ -53,7 +53,13 @@ class BinOpNode(ASTNode):
         self.left, self.op, self.right = left, op, right
     def __repr__(self):
         return f"BinOpNode({self.left}, {self.op!r}, {self.right})"
-
+    
+class CallerNode(ASTNode):
+    def __init__(self, callee, args):
+        self.callee = callee
+        self.args = args
+    def __repr__(self):
+        return f"CallerNode({self.callee}, {self.args})"
 
 class AssignNode(ASTNode):
     def __init__(self, name, value):
@@ -74,6 +80,23 @@ class InputNode(ASTNode):
         self.prompt = prompt
     def __repr__(self):
         return f"InputNode({self.prompt})"
+    
+class ClassNode(ASTNode):
+    def __init__(self, name, fields, methods):
+        self.name = name
+        self.fields = fields
+        self.methods=methods
+    def __repr__(self):
+        return f"ClassNode({self.name}, {self.fields},{self.methods})"
+    
+class InstanceNode(ASTNode):
+    def __init__(self, class_node):
+        self.class_node = class_node
+        self.fields = {field: None for field in class_node.fields} 
+    def __repr__(self):
+        return f"InstanceNode({self.class_node}, {self.fields})"
+    
+    
 
 class LenNode(ASTNode):
     def __init__(self, value):
@@ -92,7 +115,15 @@ class ImportNode:
 
     def __repr__(self):
         return f"ImportNode({self.name})"
-
+    
+class FuncNode:
+    def __init__(self, name, params, body):
+        self.name = name
+        self.params = params
+        self.body = body
+    def __repr__(self):
+        return f"FuncNode({self.name},{self.params}, {self.body})"
+    
 class IfNode(ASTNode):
     def __init__(self, condition, then_body, elif_nodes=None, else_body=None):
         self.condition = condition
