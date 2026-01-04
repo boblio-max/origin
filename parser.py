@@ -1,5 +1,5 @@
 from pandas import value_counts
-from lexer import Token
+from lexer import Token, lex
 from classes import *
 
 class Parser:
@@ -32,9 +32,11 @@ class Parser:
             self.eat("FLOAT")
             return NumberNode(float(tok.value))
 
+        
         if tok.type == "STRING":
             self.eat("STRING")
-            return StringNode(tok.value[1:-1])
+            return StringNode(tok.value[1:-1] )
+        
         if tok.type == "KEYWORD" and tok.value == "range":
             self.eat("KEYWORD")          
             self.eat("SYMBOL")         
@@ -45,14 +47,29 @@ class Parser:
             return RangeNode(start, end)
         if tok.type == "IDENT":
             node = VarNode(self.eat("IDENT").value)
+            while True:
+                if self.current_token().type == "BRACKET" and self.current_token().value == "[":
+                    self.eat("BRACKET")
+                    index = self.comparison()
+                    self.eat("BRACKET")
+                    node = IndexNode(node, index)
 
-            while self.current_token().type == "BRACKET" and self.current_token().value == "[":
-                self.eat("BRACKET")
-                index = self.comparison()
-                self.eat("BRACKET")
-                node = IndexNode(node, index)
+                elif self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+                    self.eat("SYMBOL")  # (
+                    args = []
+                    if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
+                        args.append(self.comparison())
+                        while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                            self.eat("SYMBOL")
+                            args.append(self.comparison())
+                    self.eat("SYMBOL")  # )
+                    node = CallNode(node, args)
+
+                else:
+                    break
+
             return node
-
+        
         if tok.type == "KEYWORD" and tok.value == "input":
             self.eat("KEYWORD")
             prompt = None
@@ -155,7 +172,8 @@ class Parser:
         self.eat("SYMBOL")
         value = self.comparison()
         self.eat("SYMBOL")
-        return LenNode(value_counts)
+        return LenNode(value)
+    
     def if_stmt(self):
         self.eat("KEYWORD")  # 'if'
         condition = self.comparison()
@@ -187,10 +205,51 @@ class Parser:
         body = self.block()
         return WhileNode(condition, body)
 
+    def class_stmt(self):
+        self.eat("KEYWORD")  
+        class_name = self.eat("IDENT").value
+        self.eat("BRACKET") 
+
+        fields = []
+        methods = {}
+
+        while not (self.current_token().type == "BRACKET" and self.current_token().value == "}"):
+            tok = self.current_token()
+            if tok.type == "KEYWORD" and tok.value == "let":
+                self.eat("KEYWORD")
+                field_name = self.eat("IDENT").value
+                fields.append(field_name)
+                
+            if tok.type == "KEYWORD" and tok.value == "def":
+                method = self.func_stmt()
+                methods[method.name] = method
+            else:
+                raise SyntaxError(f"Unexpected Token: {tok.type} in class {class_name}")
+        
+    def func_stmt(self):
+        self.eat("KEYWORD")     
+        name = self.eat("IDENT").value  
+        self.eat("SYMBOL")               
+
+        params = []
+        while self.current_token().type != "SYMBOL" or self.current_token().value != ")":
+            tok = self.current_token()
+            if tok.type == "IDENT":
+                params.append(tok.value)
+                self.eat("IDENT")
+            elif tok.type == "SYMBOL":
+                self.eat("SYMBOL")        
+            else:
+                raise SyntaxError(f"Unexpected token in parameter list: {tok.type} ({tok.value})")
+
+        self.eat("SYMBOL")              
+        body = self.block()            
+        return FuncNode(name, params, body)
+
     def for_stmt(self):
         self.eat("KEYWORD")
         var_name = self.eat("IDENT").value
-        self.eat("KEYWORD")  # in
+        self.eat("KEYWORD")  
         iterable = self.comparison()
         body = self.block()
         return ForNode(var_name, iterable, body)
@@ -198,7 +257,7 @@ class Parser:
         tok = self.current_token()
         if tok.type == "UNARY" or (tok.type == "LOGIC" and tok.value in ("not", "!")):
             op = self.eat(tok.type).value
-            node = self.unary()  # recursive to support stacked unary ops
+            node = self.unary()
             return UnaryOpNode(op, node)
         return self.factor()
     def logic(self):
@@ -213,14 +272,15 @@ class Parser:
         name_token = self.eat("IDENT")
         return ImportNode(name_token)
     
-    def call(self):
-        node = self.factor()
-        while self.current_token().type == "SYMBOL" and self.current_token().value == "(":
-            self.eat("SYMBOL")
-            arg = self.comparison()
-            self.eat("SYMBOL")
-            node = CallNode(node.name if isinstance(node, VarNode) else node, arg)
-        return node
+    # def call(self):
+    #     node = self.factor()
+    #     while self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+    #         self.eat("SYMBOL")
+    #         arg = self.comparison()
+    #         self.eat("SYMBOL")
+    #         node = CallNode(node.name if isinstance(node, VarNode) else node, arg)
+    #     return node
+        
     def special_expr(self):
         node = self.logic()
         while self.current_token().type == "SPECIAL":
@@ -230,20 +290,26 @@ class Parser:
         return node
 
     def statement(self):
+        self.skip_newlines() 
         if self.current_token().type == "IDENT":
-            start_pos = self.pos 
-            target = self.factor()
+            start_pos = self.pos
+            target = self.comparison()
 
-            if isinstance(target, IndexNode) and self.current_token().type == "ASSIGN":
+            if self.current_token().type == "ASSIGN":
                 self.eat("ASSIGN")
                 value = self.comparison()
-                return IndexAssignNode(target.collection, target.index, value)
+                if isinstance(target, IndexNode):
+                    return IndexAssignNode(target.collection, target.index, value)
+                if isinstance(target, VarNode):
+                    return AssignNode(target.name, value)
+
             if isinstance(target, VarNode) and self.current_token().type == "ASSIGN_OP":
                 op = self.eat("ASSIGN_OP").value
                 value = self.comparison()
                 return CompoundAssignNode(target.name, op, value)
+
             self.pos = start_pos
-        
+                
         
         self.skip_newlines()
         tok = self.current_token()
@@ -258,6 +324,10 @@ class Parser:
                 return self.if_stmt()
             if tok.value == "while":
                 return self.while_stmt()
+            if tok.value == "def":
+                return self.func_stmt()
+            if tok.value == "class":
+                return self.class_stmt()
             if tok.value == "for":
                 return self.for_stmt()
             if tok.value == "len": 
