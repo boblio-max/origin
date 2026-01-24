@@ -14,6 +14,6 @@ tokens = lex(code_lines)
 parser = Parser(tokens)
 ast = parser.program()
 
-origin = Interpreter()
+origin = interpreter()
 origin_code = origin.generate(ast)
 exec(origin_code)
