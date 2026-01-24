@@ -1,6 +1,6 @@
 from lexer import lex
 from parser import Parser
-from interpreter import Interpreter
+from interpreter import interpreter
 # Example code as if it were in code.txt
 code_lines = []
 with open("code.txt", 'r') as file:
