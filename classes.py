@@ -30,7 +30,8 @@ class RangeNode(ASTNode):
     def __init__(self, start, end):
         self.start = start
         self.end = end
-
+    def __repr__(self):
+        return f"RangeNode({self.start}, {self.end})"
 class ListNode(ASTNode):
     def __init__(self, elements):
         self.elements = elements
@@ -61,12 +62,29 @@ class CallerNode(ASTNode):
     def __repr__(self):
         return f"CallerNode({self.callee}, {self.args})"
 
+class listCallNode(ASTNode):
+    def __init__(self, list_node, pos):
+        self.list_node = list_node
+        self.pos = pos
+    def __repr__(self):
+        return f"ListCallNode({self.list_node}, {self.pos})"
 class AssignNode(ASTNode):
     def __init__(self, name, value):
         self.name, self.value = name, value
     def __repr__(self):
         return f"AssignNode({self.name}, {self.value})"
 
+class RandNumNode(ASTNode):
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+    def __repr__(self):
+        return f"RandNumNode({self.start}, {self.end})"
+class ConstAssignNode(ASTNode):
+    def __init__(self, name, value):
+        self.name, self.value = name, value
+    def __repr__(self):
+        return f"ConstAssignNode({self.name}, {self.value})"
 
 class PrintNode(ASTNode):
     def __init__(self, expr):
