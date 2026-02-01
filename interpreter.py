@@ -1,10 +1,15 @@
-from parser import (
-    ASTNode, InputNode, StringNode, NumberNode, VarNode, 
-    PrintNode, ProgramNode, BinOpNode, AssignNode, UnaryOpNode,
-    IfNode, WhileNode, ForNode, BlockNode, ListNode, CastNode,
-    ElifNode, ImportNode
-)
+from attr import field
+from parser import *
+from classes import *
+import random
+import csv
 
+CONST_VARS = {}
+fieldnames = ['name', 'value']
+csv_file_path = 'CONST_VARS.csv'
+
+imports = []
+csv_file_path_imports = 'imports.csv'
 class interpreter:
     def generate(self, node):
         if isinstance(node, ProgramNode):
@@ -14,7 +19,26 @@ class interpreter:
             return "\n".join(self.generate(stmt) for stmt in node.statements)
 
         elif isinstance(node, AssignNode):
+            if node.name in CONST_VARS:
+                raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
             return f"{node.name} = {self.generate(node.value)}"
+        elif isinstance(node, ConstAssignNode):
+            if node.name in CONST_VARS:
+                raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
+            CONST_VARS['name'] = node.name
+            CONST_VARS['value'] = self.generate(node.value)
+            with open(csv_file_path, mode='w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            return f"{node.name} = {self.generate(node.value)}"
+        elif isinstance(node, listCallNode):
+            list_code = self.generate(node.list_node)
+            pos_code = self.generate(node.pos)
+            return f"{list_code}[{pos_code}]"
+        
+        elif isinstance(node, RandNumNode):
+            start = self.generate(node.start)
+            end = self.generate(node.end)
+            return random.randint(int(start), int(end))
         elif isinstance(node, PrintNode):
             return f"print({self.generate(node.expr)})"
 
@@ -64,17 +88,24 @@ class interpreter:
             body = self.indent_block(self.generate(node.body))
             code += body
             return code
-
+        
         elif isinstance(node, ForNode):
             code = f"for {node.var_name} in {self.generate(node.iterable)}:\n"
             body = self.indent_block(self.generate(node.body))
             code += body
             return code
+        
+        elif isinstance(node, RangeNode):
+            return f"range({self.generate(node.start)}, {self.generate(node.end)})"
+        
         elif isinstance(node, CastNode):
             return f"{node.cast_type}({self.generate(node.value)})"
         
         elif isinstance(node, ImportNode):
+            with open(csv_file_path_imports, mode='w', newline='') as file:
+                writer = csv.writer(file)
             return f"import {node.name.value}"
+
         else:
             raise RuntimeError(f"Unknown node type: {node}")
 
