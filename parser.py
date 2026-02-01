@@ -28,6 +28,10 @@ class Parser:
             self.eat("INT")
             return NumberNode(int(tok.value))
 
+        if tok.type == "negate":
+            self.eat("negate")
+            return UnaryOpNode('-', self.factor())
+        
         if tok.type == "FLOAT":
             self.eat("FLOAT")
             return NumberNode(float(tok.value))
@@ -45,6 +49,7 @@ class Parser:
             end = self.comparison()
             self.eat("SYMBOL")          
             return RangeNode(start, end)
+        
         if tok.type == "IDENT":
             node = VarNode(self.eat("IDENT").value)
             while True:
@@ -77,6 +82,14 @@ class Parser:
                 prompt = StringNode(self.eat("STRING").value[1:-1])
             return InputNode(prompt)
             
+        if tok.type == "KEYWORD" and tok.value == "rand_num":
+            self.eat("KEYWORD")
+            self.eat("SYMBOL")
+            start = self.comparison()
+            self.eat("SYMBOL")
+            end = self.comparison()
+            self.eat("SYMBOL")
+            return RandNumNode(start, end)
         
         if tok.type == "BRACKET" and tok.value == "(":
             self.eat("BRACKET")
@@ -106,9 +119,19 @@ class Parser:
             expr_node = self.comparison() 
             self.eat("SYMBOL")  
             return LenNode(expr_node)
+        
+        if tok.type == "KEYWORD" and tok.value == "call":
+            self.eat("KEYWORD")
+            self.eat("BRACKET")  # [
+            list_node = self.comparison()
+            self.eat("SYMBOL")  # ,
+            pos = self.comparison()
+            self.eat("BRACKET")  # ]
+            return listCallNode(list_node, pos)
         raise SyntaxError(f"Unexpected token {tok}")
 
 
+        
     def list_literal(self):
         elements = []
         self.eat("BRACKET")  # [
@@ -144,12 +167,19 @@ class Parser:
             return BinOpNode(node, op, right)
         return node
 
-    def assignment(self):
-        self.eat("KEYWORD")
-        name = self.eat("IDENT").value
-        self.eat("ASSIGN")
-        value = self.comparison()
-        return AssignNode(name, value)
+    def assignment(self, type_):
+        if type_ == "const":
+            self.eat("KEYWORD")
+            name = self.eat("IDENT").value
+            self.eat("ASSIGN")
+            value = self.comparison()
+            return ConstAssignNode(name, value)
+        elif type_ == "let":
+            self.eat("KEYWORD")
+            name = self.eat("IDENT").value
+            self.eat("ASSIGN")
+            value = self.comparison()
+            return AssignNode(name, value)
 
     def print_stmt(self):
         self.eat("KEYWORD")
@@ -173,6 +203,14 @@ class Parser:
         value = self.comparison()
         self.eat("SYMBOL")
         return LenNode(value)
+    def listCall(self):
+        self.eat("KEYWORD")
+        self.eat("BRACKET")  # [
+        list_node = self.comparison()
+        self.eat("SYMBOL")  # ,
+        pos = self.comparison()
+        self.eat("BRACKET")  # ]
+        return listCallNode(list_node, pos)
     
     def if_stmt(self):
         self.eat("KEYWORD")  # 'if'
@@ -248,11 +286,12 @@ class Parser:
 
     def for_stmt(self):
         self.eat("KEYWORD")
-        var_name = self.eat("IDENT").value
-        self.eat("KEYWORD")  
-        iterable = self.comparison()
+        itr = self.eat("IDENT").value
+        self.eat("KEYWORD")
+        iterable = self.factor()
         body = self.block()
-        return ForNode(var_name, iterable, body)
+        return ForNode(itr, iterable, body)
+
     def unary(self):
         tok = self.current_token()
         if tok.type == "UNARY" or (tok.type == "LOGIC" and tok.value in ("not", "!")):
@@ -316,8 +355,10 @@ class Parser:
         if tok.type == "KEYWORD":
             if tok.value in ("elif", "else"):
                 raise SyntaxError(f"Unexpected '{tok.value}' outside of if statement")
-            if tok.value in ("let", "const"):
-                return self.assignment()
+            if tok.value in ("let"):
+                return self.assignment("let")
+            if tok.value in ("const"):
+                return self.assignment("const")
             if tok.value == "print":
                 return self.print_stmt()
             if tok.value == "if":
@@ -332,6 +373,8 @@ class Parser:
                 return self.for_stmt()
             if tok.value == "len": 
                 return self.len_stmt()
+            if tok.value == "call":
+                return self.listCall()
             if tok.value == "import":
                 return self.import_stmt()
             if tok.value == "break":
