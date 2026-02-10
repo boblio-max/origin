@@ -14,10 +14,11 @@ TOKEN_REGEX = [
     (r"\+=|\-=|\*=|\/=|\%=|\*\*=|\/\/=|&=|\|=", "ASSIGN_OP"),
     (r"\?\?|->|=>|<=>|::",   "SPECIAL"),
     (r"=",                   "ASSIGN"),
-    (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"),
+    (r"\+|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"),
+    (r"\-",                 "negate"),
     (r"\[|\]|\{|\}",         "BRACKET"),
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),
-    (r"\b(fn|if|elif|else|for|while|return|int|len|str|float|let|const|in|print|true|false|break|input|continue|def|import|from|class|try|except|raise|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|interface|pub|priv)\b", "KEYWORD"),
+    (r"\b(fn|if|elif|else|for|while|return|int|len|str|float|let|rand_num|const|in|print|true|false|break|input|continue|def|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|interface|pub|priv)\b", "KEYWORD"),
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"),
 ]
 # Reduces redundancy and time efficiency of the regex
