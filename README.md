@@ -1,5 +1,6 @@
-# Origin Programming Lanuage
+# Origin Programming Lanuage v1.5
 
+## ORIGIN IS GETTING CHANGED TO A BYTECODE COMPILER
 ## Description
 
 Origin is a python based programming language with syntax designed to be closer to English, letting AI models accurately produce scalable code without errors, while retaining the power of traditional programming languages. It is highly extensible and aims to eventually support ass features that Python provides.
