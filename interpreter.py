@@ -22,6 +22,12 @@ class interpreter:
             if node.name in CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
             return f"{node.name} = {self.generate(node.value)}"
+        
+        elif isinstance(node, SetNode):
+            if node.name in CONST_VARS:
+                raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
+            if node.name == "servo" and node.type_ == "angle" and node.name == "servo":
+                return "from adafruit_servokit import ServoKit\nkit = ServoKit(channels=16)\nkit.servo[{node.num}].angle = {node.params}"
         elif isinstance(node, ConstAssignNode):
             if node.name in CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
@@ -89,6 +95,16 @@ class interpreter:
             code += body
             return code
         
+        elif isinstance(node, TryNode):
+            code = "try:\n"
+            try_body = self.indent_block(self.generate(node.try_body))
+            code += try_body
+            if node.except_body:
+                code += "\nexcept:\n"
+                except_body = self.indent_block(self.generate(node.except_body))
+                code += except_body
+            return code
+        
         elif isinstance(node, ForNode):
             code = f"for {node.var_name} in {self.generate(node.iterable)}:\n"
             body = self.indent_block(self.generate(node.body))
@@ -106,6 +122,15 @@ class interpreter:
                 writer = csv.writer(file)
             return f"import {node.name.value}"
 
+        elif isinstance(node, ImportFromNode):
+            with open(csv_file_path_imports, mode='w', newline='') as file:
+                writer = csv.writer(file)
+            return f"from {node.name.value} import {node.lib.value}"
+
+        elif isinstance(node, ImportAsNode):
+            with open(csv_file_path_imports, mode='w', newline='') as file:
+                writer = csv.writer(file)
+            return f"import {node.name.value} as {node.nName.value}"
         else:
             raise RuntimeError(f"Unknown node type: {node}")
 
