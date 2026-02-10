@@ -1,4 +1,3 @@
-from pandas import value_counts
 from lexer import Token, lex
 from classes import *
 
@@ -18,7 +17,6 @@ class Parser:
             self.pos += 1
             return tok
         raise SyntaxError(f"Expected {type_}, got {tok.type} ({tok.value})")
-
 
     def factor(self):
         self.skip_newlines()
@@ -43,7 +41,7 @@ class Parser:
         
         if tok.type == "KEYWORD" and tok.value == "range":
             self.eat("KEYWORD")          
-            self.eat("SYMBOL")         
+            self.eat("SYMBOL")      
             start = self.comparison()
             self.eat("SYMBOL")          
             end = self.comparison()
@@ -180,7 +178,17 @@ class Parser:
             self.eat("ASSIGN")
             value = self.comparison()
             return AssignNode(name, value)
-
+        elif type_ == "set":
+            self.eat("KEYWORD")
+            name = self.eat("IDENT").value
+            self.eat("BRACKET")
+            num = self.eat("INT")
+            self.eat("BRACKET")
+            self.eat("ASSIGN")
+            type_ = self.eat("IDENT").value
+            self.eat("SYMBOL")
+            param = self.eat("INT").value
+            return SetNode(name,num,  type_, param)
     def print_stmt(self):
         self.eat("KEYWORD")
         return PrintNode(self.comparison())
@@ -237,6 +245,35 @@ class Parser:
 
         return IfNode(condition, then_body, elif_nodes, else_body)
 
+    def try_stmt(self):
+        self.eat("KEYWORD")  # 'try'
+        self.skip_newlines() 
+        self.eat("BRACKET")   # '{'
+        try_body = self.block()
+
+        except_nodes = []
+        while True:
+            self.skip_newlines()
+            tok = self.current_token()
+            if tok.type == "KEYWORD" and tok.value == "except":
+                self.eat("KEYWORD")
+                self.skip_newlines()  # allow newline before '{'
+                except_body = self.block()
+                except_nodes.append(except_body)
+            else:
+                break
+
+        else_body = None
+        self.skip_newlines()
+        if self.current_token().type == "KEYWORD" and self.current_token().value == "else":
+            self.eat("KEYWORD")
+            self.skip_newlines()  # allow newline before '{'
+            else_body = self.block()
+
+        return TryNode(try_body, except_nodes, else_body)
+
+
+    
     def while_stmt(self):
         self.eat("KEYWORD")
         condition = self.comparison()
@@ -257,7 +294,6 @@ class Parser:
                 self.eat("KEYWORD")
                 field_name = self.eat("IDENT").value
                 fields.append(field_name)
-                
             if tok.type == "KEYWORD" and tok.value == "def":
                 method = self.func_stmt()
                 methods[method.name] = method
@@ -309,16 +345,29 @@ class Parser:
     def import_stmt(self):
         self.eat("KEYWORD")
         name_token = self.eat("IDENT")
-        return ImportNode(name_token)
+        if self.current_token().value == "\\n":
+            return ImportNode(name_token)
+        else:
+            self.eat("KEYWORD")
+            nName = self.eat("IDENT")
+            return ImportAsNode(name_token, nName)
+    def import_from_stmt(self):
+        self.eat("KEYWORD")
+        name = self.eat("IDENT")
+        if self.current_token() == ".":
+            print("coolio")
+        self.eat("KEYWORD")
+        lib = self.eat("IDENT")
+        return ImportFromNode(name,lib)
     
-    # def call(self):
-    #     node = self.factor()
-    #     while self.current_token().type == "SYMBOL" and self.current_token().value == "(":
-    #         self.eat("SYMBOL")
-    #         arg = self.comparison()
-    #         self.eat("SYMBOL")
-    #         node = CallNode(node.name if isinstance(node, VarNode) else node, arg)
-    #     return node
+    def import_as_stmt(self):
+        self.eat("KEYWORD")
+        name = self.eat("IDENT")
+        self.eat("KEYWORD") 
+        nName = self.eat("IDENT")
+        return ImportAsNode(name, nName)
+        
+
         
     def special_expr(self):
         node = self.logic()
@@ -357,12 +406,16 @@ class Parser:
                 raise SyntaxError(f"Unexpected '{tok.value}' outside of if statement")
             if tok.value in ("let"):
                 return self.assignment("let")
+            if tok.value in ("set"):
+                return self.assignment("set")
             if tok.value in ("const"):
                 return self.assignment("const")
             if tok.value == "print":
                 return self.print_stmt()
             if tok.value == "if":
                 return self.if_stmt()
+            if tok.value == "try":
+                return self.try_stmt()
             if tok.value == "while":
                 return self.while_stmt()
             if tok.value == "def":
@@ -376,7 +429,9 @@ class Parser:
             if tok.value == "call":
                 return self.listCall()
             if tok.value == "import":
-                return self.import_stmt()
+                    return self.import_stmt()
+            if tok.value == "from":
+                return self.import_from_stmt()
             if tok.value == "break":
                 self.eat("KEYWORD")
                 return BreakNode()
