@@ -2,6 +2,7 @@ class ASTNode:
     pass
 
 
+
 class NumberNode(ASTNode):
     def __init__(self, value):
         self.value = value
@@ -21,7 +22,22 @@ class VarNode(ASTNode):
         self.name = name
     def __repr__(self):
         return f"VarNode({self.name})"
+    
+class TryNode(ASTNode): 
+    def __init__(self, try_block, except_blocks=None, else_block=None):
+        self.try_block = try_block
+        self.except_blocks = except_blocks or []
+        self.else_block = else_block
 
+
+    def __repr__(self):
+        return f"TryNode({self.try_block}, {self.except_blocks}, {self.else_block})"
+    
+class ErrorNode(ASTNode):
+    def __init__(self, message):
+        self.message = message
+    def __repr__(self):
+        return f"ErrorNode({self.message})"
 class CastNode(ASTNode):
     def __init__(self, cast_type, value):
         self.cast_type = cast_type
@@ -133,6 +149,29 @@ class ImportNode:
 
     def __repr__(self):
         return f"ImportNode({self.name})"
+
+class ImportFromNode:
+    def __init__(self, name, library):
+        self.name = name
+        self.lib = library
+    
+    def __repr__(self):
+        return f"ImportFromNode({self.name}, {self.lib})"
+class SetNode:
+    def __init__(self,name, num,type_, params):
+        self.name = name
+        self.params = params
+        self.type_ = type_
+        self.num = num
+    def __repr__(self):
+        return f"SetNode({self.name}, {self.num},{self.type_},{self.params})"
+class ImportAsNode:
+    def __init__(self, name, newName):
+        self.name = name
+        self.nName = newName
+    
+    def __repr__(self):
+        return f"ImportFromNode({self.name}, {self.nName})"
     
 class FuncNode:
     def __init__(self, name, params, body):
