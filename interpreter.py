@@ -48,6 +48,35 @@ class interpreter:
     that subtree.
     """
 
+    def __init__(self):
+        self.variable_types = {}
+
+    def get_type(self, node):
+        """Infer the type of an AST node."""
+        if hasattr(node, 'type') and node.type is not None:
+            return node.type
+        
+        if isinstance(node, VarNode):
+            return self.variable_types.get(node.name)
+        
+        if isinstance(node, BinOpNode):
+            left_type = self.get_type(node.left)
+            right_type = self.get_type(node.right)
+            # Simplistic numeric promotion
+            if left_type == "float" or right_type == "float":
+                return "float"
+            return left_type # Or default to "int"
+        
+        if isinstance(node, UnaryOpNode):
+            return self.get_type(node.node)
+        
+        if isinstance(node, CallNode):
+            # For now, we don't track function return types, so we might return None
+            # or add a way to track them.
+            return None
+            
+        return getattr(node, 'type', None)
+
     def generate(self, node):
         """Recursively translate an AST node into Python source text.
 
@@ -86,27 +115,46 @@ class interpreter:
             # Protect against constant overriding
             if node.name in CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
-            return f"{node.name} = {self.generate(node.value)}"
-        
+            
+            value_type = self.get_type(node.value)
+            
+            # Enforce strict typing
+            if node.type is not None:
+                # Declaration with type (let x: int = ...)
+                if value_type is not None and value_type != node.type:
+                    # Allow int to float promotion? Let's be strict for now as requested.
+                    raise TypeError(f"Type Mismatch: variable '{node.name}' declared as {node.type} but assigned {value_type}")
+                self.variable_types[node.name] = node.type
+            elif node.name in self.variable_types:
+                # Re-assignment without type (x = ...)
+                expected_type = self.variable_types[node.name]
+                if value_type is not None and value_type != expected_type:
+                    raise TypeError(f"Type Mismatch: variable '{node.name}' is {expected_type} but assigned {value_type}")
+
+            IDENT_block = self.generate(node.value)
+            return f"{node.name} = {IDENT_block}"
+
         elif isinstance(node, SetNode):
             # Custom setter, e.g., setting servo angles
             if node.name in CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
             if node.name == "servo" and node.type_ == "angle" and node.name == "servo":
-                return "from adafruit_servokit import ServoKit\nkit = ServoKit(channels=16)\nkit.servo[{node.num}].angle = {node.params}"
+                return f"from adafruit_servokit import ServoKit\nkit = ServoKit(channels=16)\nkit.servo[{node.num}].angle = {node.params}"
         
         elif isinstance(node, ConstAssignNode):
             # Handling constant assignments and writing them natively to a CSV
             if node.name in CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
-            CONST_VARS[node.name] = self.generate(node.value)
+            
+            val_str = self.generate(node.value)
+            CONST_VARS[node.name] = val_str
 
             with open(csv_file_path, mode='a', newline='') as csvfile:
-                data = [node.name, self.generate(node.value)]
+                data = [node.name, val_str]
                 writer = csv.DictWriter(csvfile, fieldnames=['name', 'value'])
                 writer.writeheader()
                 writer.writerow(dict(zip(['name', 'value'], data)))
-            return f"{node.name} = {self.generate(node.value)}"
+            return f"{node.name} = {val_str}"
 
         elif isinstance(node, ParallelNode):
             # Handles simulated parallelism operations
@@ -123,7 +171,7 @@ class interpreter:
             # Native random integration
             start = self.generate(node.start)
             end = self.generate(node.end)
-            return random.randint(int(start), int(end))
+            return str(random.randint(int(start), int(end)))
         
         elif isinstance(node, NoneNode):
             return "None"
@@ -135,7 +183,10 @@ class interpreter:
             return f"print({self.generate(node.expr)})"
 
         elif isinstance(node, NumberNode):
-            return str(node.value)
+            if node.type == "float":
+                return str(float(node.value))
+            else:
+                return str(node.value)
             
         elif isinstance(node, SqrtNode):
             return f"{math.sqrt(float(self.generate(node.value)))}"
