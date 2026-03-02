@@ -22,6 +22,7 @@ class Parser:
         tokens (list[lexer.Token]): Input token sequence.
         pos (int): Current token index within ``tokens``.
     """
+    types = {"int":"float", "float":"int", "str": "str"}
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
@@ -61,7 +62,7 @@ class Parser:
 
         if tok.type == "INT":
             self.eat("INT")
-            return NumberNode(int(tok.value))
+            return NumberNode(int(tok.value), "int")
 
         if tok.type == "negate":
             self.eat("negate")
@@ -69,11 +70,11 @@ class Parser:
         
         if tok.type == "FLOAT":
             self.eat("FLOAT")
-            return NumberNode(float(tok.value))
+            return NumberNode(float(tok.value), "float")
 
         if tok.type == "STRING":
             self.eat("STRING")
-            return StringNode(tok.value[1:-1] )
+            return StringNode(tok.value[1:-1], "str")
         
         if tok.type == "KEYWORD" and tok.value == "range":
             self.eat("KEYWORD")          
@@ -259,15 +260,19 @@ class Parser:
         if type_ == "const":
             self.eat("KEYWORD")
             name = self.eat("IDENT").value
+            self.eat("SYMBOL")
+            _type = self.eat("KEYWORD").value
             self.eat("ASSIGN")
             value = self.comparison()
             return ConstAssignNode(name, value)
         elif type_ == "let":
             self.eat("KEYWORD")
             name = self.eat("IDENT").value
+            self.eat("SYMBOL")
+            _type = self.eat("KEYWORD").value
             self.eat("ASSIGN")
             value = self.comparison()
-            return AssignNode(name, value)
+            return AssignNode(name, value, _type)
         elif type_ == "set":
             self.eat("KEYWORD")
             name = self.eat("IDENT").value
@@ -282,7 +287,28 @@ class Parser:
     def print_stmt(self):
         """Handles built-in stream writing out via print."""
         self.eat("KEYWORD")
-        return PrintNode(self.comparison())
+        var = self.comparison()
+        try:
+            self.eat("KEYWORD") # as
+            _type = self.eat("KEYWORD").value
+            # print(var)
+            # print(_type)
+            print(var)
+            if var.type == _type:
+                return PrintNode(var, _type)
+            elif var.type == self.types[_type]:
+                if _type == "float":
+                    var = NumberNode(var.value, "float")
+                    return PrintNode(var, None)
+                elif _type == "int":
+                    var = NumberNode(var.value, "int")
+                    return PrintNode(var, None)
+                
+            elif var.type != _type:
+                raise SyntaxError(f"Type mismatch at {var.value}")
+        except SyntaxError:
+            return PrintNode(var, None)
+                    
     
     def exec_stmt(self):
         """Handles code inline-execution statements."""
@@ -477,8 +503,6 @@ class Parser:
         """Specific from-module extraction logically bound exclusively contextually."""
         self.eat("KEYWORD")
         name = self.eat("IDENT")
-        if self.current_token().value == ".":
-            print("coolio")
         self.eat("KEYWORD")
         lib = self.eat("IDENT")
         return ImportFromNode(name, lib)
@@ -519,7 +543,7 @@ class Parser:
                 if isinstance(target, IndexNode):
                     return IndexAssignNode(target.collection, target.index, value)
                 if isinstance(target, VarNode):
-                    return AssignNode(target.name, value)
+                    return AssignNode(target.name, value, target.type)
 
             # Complex compounding evaluations internally managed explicitly bounds inherently mapped naturally
             if isinstance(target, VarNode) and self.current_token().type == "ASSIGN_OP":
