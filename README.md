@@ -1,56 +1,59 @@
-# Origin Programming Lanuage v1.5
+# Origin Programming Language v1.7
 
-## ORIGIN IS GETTING CHANGED TO A BYTECODE COMPILER
+> [!IMPORTANT]
+> **ORIGIN IS TRANSITIONING TO A BYTECODE COMPILER**
+> This version introduces significant architectural changes to improve execution speed and type safety through a dedicated bytecode format and Virtual Machine (VM).
+
 ## Description
 
-Origin is a python based programming language with syntax designed to be closer to English, letting AI models accurately produce scalable code without errors, while retaining the power of traditional programming languages. It is highly extensible and aims to eventually support ass features that Python provides.
+Origin is a Python-based programming language with syntax designed to be closer to English. It enables AI models to produce scalable code with higher accuracy while retaining the power of traditional programming languages. Origin is highly extensible and aims to eventually support all features provided by Python.
+
 ### Features
-English-like syntax: Write code that reads almost like natural language.
-
-Object-oriented design: Classes, objects, inheritance, and encapsulation.
-
-Efficient execution: Built on Python for fast prototyping.
-
-Extensible: Easily add custom functions, modules, and features.
-
-Beginner-friendly: Simplifies complex constructs without sacrificing flexibility.
+*   **English-like syntax**: Write code that reads almost like natural language.
+*   **Strict Typing**: Designed for AI-native programming. All variable declarations require explicit type annotations, ensuring predictable state and better error detection.
+*   **Object-oriented design**: Built-in support for Classes, objects, inheritance, and encapsulation.
+*   **Bytecode Execution**: Compiled into efficient bytecode for faster execution via the Origin VM.
+*   **Extensible**: Easily add custom functions, modules, and hardware integrations.
+*   **Beginner-friendly**: Simplifies complex constructs without sacrificing flexibility.
 
 ## Visit Website
 [ORIGIN DOCUMENTATION](https://docs-origin.onrender.com)
+
 ## Installation
 
-**Clone the repository**:
-    ```
+1. **Clone the repository**:
+    ```bash
     git clone https://github.com/boblio-max/origin.git
     ```
-****
-**Requirements**:
-    ```
-    python
-    ```
+2. **Requirements**:
+    - Python 3.x
+
 ## Usage
 
 *   **To run the application**:
-*   import code into folder as code.txt
-*   in runner.py set code file to desired one
-*   run runner.py
+    1. Import your code into the project folder as `code.txt`.
+    2. In `runnerByte.py`, ensure the code file path is set correctly.
+    3. Run the compiler and VM:
+    ```bash
+    python ORIGIN_CODE/runnerByte.py
+    ```
 
-## Example Usage
-```
+## Example Usage: Calculator
+```origin
 print "WELCOME TO THE CALCULATOR"
 print "This was written in Origin code!"
 
 # Handles inputs and type casting
-let x = float(input "Enter a number: ")
-let y = float(input "Enter a number: ")
+# Note: x and y must be declared as float to match the cast
+let x: float = float(input "Enter a number: ")
+let y: float = float(input "Enter another number: ")
 
-# Lets User choose input
-let op = input "Enter the operation(+, -, *, /): "
+# Let user choose operation
+let op: str = input "Enter the operation (+, -, *, /): "
 
-#handles printing of once operation is chosen
-print "Your number is..."
+print "Your result is..."
 if op == "+" {
-    print x + y
+    print x + b
 } 
 elif op == "-" {
     print x - y
@@ -61,30 +64,28 @@ elif op == "*" {
 elif op == "/" {
     print x / y
 }
-
 ```
-## OR
-## Example Usage
-```
-print "Welcome to the fibonacci Sequence!"
-let a = 0
-let b = 1
 
-let itr = int(input "Enter the iteration number: ")
-let itr = itr + 1
-for i in range(0, itr) {
+## Example Usage: Fibonacci Sequence
+```origin
+print "Welcome to the Fibonacci Sequence!"
+let a: int = 0
+let b: int = 1
+
+let itr: int = int(input "Enter the iteration number: ")
+let end: int = itr + 1
+
+for i in range(0, end) {
     print a
-    let c = a + b
-    let a = b
-    let b = c
+    let c: int = a + b
+    a = b
+    b = c
 }
 ```
 
-
 ## Future Improvements
-*    GUI containing an origin IDE
-*    support for python libraries and dependencies
-
+*   Integrated GUI IDE for Origin.
+*   Expanded support for Python libraries and dependencies.
   
 ## Contributing
 
