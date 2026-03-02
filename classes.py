@@ -1,15 +1,20 @@
-"""
-classes.py
+"""AST node definitions
 
-This module defines the abstract syntax tree (AST) nodes used by the parser
-and evaluated by the interpreter. Each class represents a distinct grammatical
-construct within the language code (e.g., variables, loops, mathematical operations).
+This module defines the Abstract Syntax Tree (AST) node classes used by the
+parser and interpreter. Each node class represents a single syntactic
+construct (literal, expression, statement, etc.) and is intentionally small
+and data-focused so the interpreter can pattern-match on types and fields.
 """
 
 import os 
 
 class ASTNode:
-    """Base class for all Abstract Syntax Tree nodes."""
+    """Abstract base type for AST nodes.
+
+    Subclass instances are plain data containers consumed by the interpreter
+    and code-generation routines. This base class is intentionally empty and
+    serves as a type marker.
+    """
     pass
 
 class ExecNode(ASTNode):
@@ -21,17 +26,19 @@ class ExecNode(ASTNode):
 
 class NumberNode(ASTNode):
     """Represents a numeric literal (integer or float)."""
-    def __init__(self, value):
+    def __init__(self, value, _type):
         self.value = value
+        self.type = _type
     def __repr__(self):
-        return f"NumberNode({self.value})"
+        return f"NumberNode({self.value}, {self.type})"
 
 class StringNode(ASTNode):
     """Represents a string literal."""
-    def __init__(self, value):
+    def __init__(self, value, _type="str"):
         self.value = value
+        self.type = _type
     def __repr__(self): 
-        return f"StringNode({self.value!r})"
+        return f"StringNode({self.value!r}, {self.type})"
 
 class SqrtNode(ASTNode):
     """Represents a square root operation."""
@@ -42,10 +49,11 @@ class SqrtNode(ASTNode):
 
 class VarNode(ASTNode):
     """Represents a variable reference."""
-    def __init__(self, name):
+    def __init__(self, name, _type=None):
         self.name = name
+        self.type = _type
     def __repr__(self):
-        return f"VarNode({self.name})"
+        return f"VarNode({self.name}, {self.type})"
     
 class TryNode(ASTNode): 
     """Represents a try-except error handling block."""
@@ -69,6 +77,7 @@ class CastNode(ASTNode):
     def __init__(self, cast_type, value):
         self.cast_type = cast_type
         self.value = value
+        self.type = cast_type
         
 class RangeNode(ASTNode):
     """Represents a numeric generator range."""
@@ -95,7 +104,7 @@ class DictNode(ASTNode):
 class NoneNode(ASTNode):
     """Represents the None literal."""
     def __init__(self):
-        pass
+        self.type = "none"
     def __repr__(self):
         return "NoneNode()"
 
@@ -123,6 +132,7 @@ class BinOpNode(ASTNode):
     """Represents a binary operation between two nodes (e.g., +, -, *, /)."""
     def __init__(self, left, op, right):
         self.left, self.op, self.right = left, op, right
+        self.type = None # Inferred at runtime or by a type checker
     def __repr__(self):
         return f"BinOpNode({self.left}, {self.op!r}, {self.right})"
     
@@ -144,10 +154,10 @@ class listCallNode(ASTNode):
 
 class AssignNode(ASTNode):
     """Represents an assignment operation binding a value to a variable name."""
-    def __init__(self, name, value):
-        self.name, self.value = name, value
+    def __init__(self, name, value, _type):
+        self.name, self.value, self.type = name, value, _type
     def __repr__(self):
-        return f"AssignNode({self.name}, {self.value})"
+        return f"AssignNode({self.name}, {self.value}, {self.type})"
 
 class RandNumNode(ASTNode):
     """Represents a random number generation query."""
@@ -166,10 +176,11 @@ class ConstAssignNode(ASTNode):
 
 class PrintNode(ASTNode):
     """Represents a console print statement."""
-    def __init__(self, expr):
+    def __init__(self, expr, _type):
         self.expr = expr
+        self.type = _type
     def __repr__(self):
-        return f"PrintNode({self.expr})"
+        return f"PrintNode({self.expr}, {self.type})"
 
 class ParallelNode(ASTNode):
     """Represents parallel processing thread spawn context."""
@@ -301,6 +312,7 @@ class UnaryOpNode(ASTNode):
     """Represents an operation affecting a single targeted syntactic node (e.g., value negation)."""
     def __init__(self, op, node):
         self.op, self.node = op, node
+        self.type = None
     def __repr__(self):
         return f"UnaryOpNode({self.op!r}, {self.node})"
     
@@ -315,6 +327,7 @@ class BoolNode(ASTNode):
     """Represents a literal True or False constant boolean structure."""
     def __init__(self, value: bool):
         self.value = value
+        self.type = "bool"
     def __repr__(self):
         return f"BoolNode({self.value})"
 
