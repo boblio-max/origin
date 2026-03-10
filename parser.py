@@ -114,6 +114,12 @@ class Parser:
                     self.eat("SYMBOL")  # )
                     node = CallNode(node, args)
 
+                # Handle attribute/method access: node.attr
+                elif self.current_token().type == "SYMBOL" and self.current_token().value == ".":
+                    self.eat("SYMBOL")  # .
+                    attr_name = self.eat("IDENT").value
+                    node = AttributeNode(node, attr_name)
+
                 else:
                     break
 
@@ -284,6 +290,8 @@ class Parser:
             self.eat("SYMBOL")
             param = self.eat("INT").value
             return SetNode(name,num,  type_, param)
+        else:
+            self.open_stmt()
     def print_stmt(self):
         """Handles built-in stream writing out via print."""
         self.eat("KEYWORD")
@@ -309,7 +317,13 @@ class Parser:
         except SyntaxError:
             return PrintNode(var, None)
                     
-    
+    def open_stmt(self):
+        self.eat("KEYWORD")
+        path = self.eat("STRING").value
+        _type =self.eat("STRING").value 
+        self.eat("KEYWORD")
+        name = self.eat("IDENT").value
+        return openNode(name, path, _type)
     def exec_stmt(self):
         """Handles code inline-execution statements."""
         self.eat("KEYWORD")
@@ -328,7 +342,16 @@ class Parser:
 
         self.eat("BRACKET")  # }
         return BlockNode(statements)
-    
+    def class_block(self):
+        methods = []
+        self.eat("BRACKET")
+        while not (self.current_token().type == "BRACKET" and self.current_token().value == "}"):
+            methods.append(self.statement())
+            while self.current_token().type == "NEWLINE":
+                self.eat("NEWLINE")
+
+        self.eat("BRACKET")  # }
+        return BlockNode(methods)
     def len_stmt(self):
         """Handles mapping collection string/array lengths respectively."""
         self.eat("KEYWORD")
@@ -426,23 +449,21 @@ class Parser:
         """Translates OOP definition mapping objects conceptually class-level blocks."""
         self.eat("KEYWORD")  
         class_name = self.eat("IDENT").value
-        self.eat("BRACKET") 
-
+        self.eat("SYMBOL") # (
         fields = []
-        methods = {}
-
-        while not (self.current_token().type == "BRACKET" and self.current_token().value == "}"):
+        while self.current_token().type != "SYMBOL" or self.current_token().value != ")":
             tok = self.current_token()
-            if tok.type == "KEYWORD" and tok.value == "let":
-                self.eat("KEYWORD")
-                field_name = self.eat("IDENT").value
-                fields.append(field_name)
-            if tok.type == "KEYWORD" and tok.value == "def":
-                method = self.func_stmt()
-                methods[method.name] = method
+            if tok.type == "IDENT":
+                fields.append(tok.value)
+                self.eat("IDENT")
+            elif tok.type == "SYMBOL":
+                self.eat("SYMBOL")        
             else:
-                raise SyntaxError(f"Unexpected Token: {tok.type} in class {class_name}")
-        
+                raise SyntaxError(f"Unexpected token in parameter list: {tok.type} ({tok.value})")
+
+        self.eat("SYMBOL")              
+        body = self.class_block()
+        return ClassNode(class_name, fields, body)
     def func_stmt(self):
         """Defines functions capturing context, scope mappings explicitly."""
         self.eat("KEYWORD")     
@@ -583,6 +604,8 @@ class Parser:
                 return self.par_stmt()
             if tok.value == "def":
                 return self.func_stmt()
+            if tok.value == "open":
+                return self.open_stmt()
             if tok.value == "class":
                 return self.class_stmt()
             if tok.value == "for":
