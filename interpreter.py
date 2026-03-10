@@ -21,7 +21,7 @@ from multiprocessing import Process
 
 # Global dictionary to store constant variables and their values
 CONST_VARS = {}
-csv_file_path = "C:\\Users\\smile\\OneDrive\\Documents\\origin\\ORIGIN_CODE\\CONST_VARS.csv"
+csv_file_path = "CONST_VARS.csv"
 
 # Clear or create the CSV file for constant variables
 with open(csv_file_path, "w") as f:
@@ -29,10 +29,14 @@ with open(csv_file_path, "w") as f:
 
 # List to store imported modules (for tracking purposes)
 imports = []
-csv_file_path_imports = "C:\\Users\\smile\\OneDrive\\Documents\\origin\\ORIGIN_CODE\\imports.csv"
+csv_file_path_imports = "imports.csv"
 with open(csv_file_path_imports, "w") as f:
     pass
 
+classes = {}
+csv_file_path_classes = "classes.csv"
+with open(csv_file_path_classes, "w") as f:
+    pass
 # --- Interpreter ---
 # The interpreter takes the AST and generates Python code as a string.
 # It handles all the different node types and translates them into valid Python code.
@@ -110,7 +114,15 @@ class interpreter:
             with open("temp_exec.py", mode='w', newline='') as file:
                 file.write(node.code)
             command = [sys.executable, "runner.py", file_to_run]
-        
+                
+        elif isinstance(node, ClassNode):
+            with open(csv_file_path_classes, mode='a', newline='') as classesfile:
+                data = [node.name, node.fields, node.methods]
+                writer = csv.DictWriter(csvfile, fieldnames=['name', 'fields', 'methods'])
+                writer.writeheader()
+                writer.writerow(dict(zip(['name', 'fields', 'methods'], data)))
+        elif isinstance(node, openNode):
+            return f"{node.name} = open({node.path}, {node.type})"
         elif isinstance(node, AssignNode):
             # Protect against constant overriding
             if node.name in CONST_VARS:
@@ -266,7 +278,21 @@ class interpreter:
         
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
-        
+
+        elif isinstance(node, FuncNode):
+            params_str = ", ".join(node.params)
+            code = f"def {node.name}({params_str}):\n"
+            body = self.indent_block(self.generate(node.body))
+            code += body
+            return code
+
+        elif isinstance(node, AttributeNode):
+            return f"{self.generate(node.obj)}.{node.attr}"
+
+        elif isinstance(node, CallNode):
+            args_str = ", ".join(self.generate(arg) for arg in node.arg)
+            return f"{self.generate(node.func_name)}({args_str})"
+
         elif isinstance(node, CastNode):
             return f"{node.cast_type}({self.generate(node.value)})"
         
