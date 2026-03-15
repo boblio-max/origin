@@ -65,6 +65,13 @@ class TryNode(ASTNode):
     def __repr__(self):
         return f"TryNode({self.try_block}, {self.except_blocks}, {self.else_block})"
     
+class openNode(ASTNode): 
+    def __init__(self, name, path, _type):
+        self.name = name
+        self.path = path
+        self.type = _type
+    def __repr__(self):
+        return f"openNode({self.name}, {self.path}, {self.type})"
 class ErrorNode(ASTNode):
     """Represents a generic evaluation error or syntax error."""
     def __init__(self, message):
@@ -135,6 +142,14 @@ class BinOpNode(ASTNode):
         self.type = None # Inferred at runtime or by a type checker
     def __repr__(self):
         return f"BinOpNode({self.left}, {self.op!r}, {self.right})"
+    
+class AttributeNode(ASTNode):
+    """Represents attribute or method access on an object."""
+    def __init__(self, obj, attr):
+        self.obj = obj
+        self.attr = attr
+    def __repr__(self):
+        return f"AttributeNode({self.obj}, {self.attr})"
     
 class CallerNode(ASTNode):
     """Represents a function call execution."""

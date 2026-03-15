@@ -17,11 +17,12 @@ from classes import *
 import random
 import csv
 import math, sys
+import subprocess
 from multiprocessing import Process
 
 # Global dictionary to store constant variables and their values
 CONST_VARS = {}
-csv_file_path = "C:\\Users\\smile\\OneDrive\\Documents\\origin\\ORIGIN_CODE\\CONST_VARS.csv"
+csv_file_path = "CONST_VARS.csv"
 
 # Clear or create the CSV file for constant variables
 with open(csv_file_path, "w") as f:
@@ -29,9 +30,76 @@ with open(csv_file_path, "w") as f:
 
 # List to store imported modules (for tracking purposes)
 imports = []
-csv_file_path_imports = "C:\\Users\\smile\\OneDrive\\Documents\\origin\\ORIGIN_CODE\\imports.csv"
+csv_file_path_imports = "imports.csv"
 with open(csv_file_path_imports, "w") as f:
     pass
+
+classes = {}
+csv_file_path_classes = "classes.csv"
+with open(csv_file_path_classes, "w") as f:
+    pass
+# --- Hardware Helpers ---
+_servo_kit = None
+_gpio_initialized = False
+
+SERVO_MIN_ANGLE = 0
+SERVO_MAX_ANGLE = 180
+
+def _get_servo_kit():
+    global _servo_kit
+    if _servo_kit is None:
+        try:
+            from adafruit_servokit import ServoKit
+            _servo_kit = ServoKit(channels=16)
+        except ImportError as e:
+            raise ImportError("adafruit_servokit is not installed.") from e
+    return _servo_kit
+
+def _ensure_gpio():
+    global _gpio_initialized
+    if not _gpio_initialized:
+        try:
+            import RPi.GPIO as GPIO
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
+            _gpio_initialized = True
+        except ImportError as e:
+            raise ImportError("RPi.GPIO is not installed.") from e
+    return _gpio_initialized
+
+def _execute_servo(index: int, angle: float) -> None:
+    index = int(index)
+    if not (0 <= index <= 15):
+        raise ValueError(f"Servo index {index} out of range (0-15)")
+
+    angle = float(angle)
+    if angle < SERVO_MIN_ANGLE or angle > SERVO_MAX_ANGLE:
+        clamped = max(SERVO_MIN_ANGLE, min(SERVO_MAX_ANGLE, angle))
+        print(f"[WARN] Servo angle {angle}° clamped to {clamped}°.")
+        angle = clamped
+
+    kit = _get_servo_kit()
+    kit.servo[index].angle = angle
+
+def _execute_set_pin(pin: int, state: int) -> None:
+    import RPi.GPIO as GPIO
+    pin = int(pin)
+    if state not in (0, 1):
+        raise ValueError(f"Pin state must be 0 or 1, got {state}")
+
+    _ensure_gpio()
+    GPIO.setup(pin, GPIO.OUT)
+    GPIO.output(pin, GPIO.HIGH if state == 1 else GPIO.LOW)
+
+def gpio_cleanup() -> None:
+    global _gpio_initialized
+    if _gpio_initialized:
+        try:
+            import RPi.GPIO as GPIO
+            GPIO.cleanup()
+        except:
+            pass
+        _gpio_initialized = False
 
 # --- Interpreter ---
 # The interpreter takes the AST and generates Python code as a string.
@@ -105,12 +173,27 @@ class interpreter:
             return "\n".join(self.generate(stmt) for stmt in node.statements)
 
         elif isinstance(node, ExecNode):
-            # Writes code to a temporary file and dispatches it via a parallel runner
+            # Writes code to a temporary file and dispatches it via a subprocess
             file_to_run = "temp_exec.py"
             with open("temp_exec.py", mode='w', newline='') as file:
                 file.write(node.code)
-            command = [sys.executable, "runner.py", file_to_run]
-        
+            command = [sys.executable, "runnerAlt.py", file_to_run]
+            result = subprocess.run(command, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"ExecNode subprocess failed:\n{result.stderr}")
+            return ""
+                
+        elif isinstance(node, ClassNode):
+            with open(csv_file_path_classes, mode='a', newline='') as classesfile:
+                data = [node.name, node.fields, node.methods]
+                write_header = classesfile.tell() == 0
+                writer = csv.DictWriter(classesfile, fieldnames=['name', 'fields', 'methods'])
+                if write_header:
+                    writer.writeheader()
+                writer.writerow(dict(zip(['name', 'fields', 'methods'], data)))
+            return ""
+        elif isinstance(node, openNode):
+            return f"{node.name} = open({node.path}, {node.type})"
         elif isinstance(node, AssignNode):
             # Protect against constant overriding
             if node.name in CONST_VARS:
@@ -135,11 +218,16 @@ class interpreter:
             return f"{node.name} = {IDENT_block}"
 
         elif isinstance(node, SetNode):
-            # Custom setter, e.g., setting servo angles
+            # Custom setter, e.g., setting servo angles or GPIO pins
             if node.name in CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
-            if node.name == "servo" and node.type_ == "angle" and node.name == "servo":
-                return f"from adafruit_servokit import ServoKit\nkit = ServoKit(channels=16)\nkit.servo[{node.num}].angle = {node.params}"
+
+            if node.name == "servo" and node.type_ == "angle":
+                return f"_execute_servo({self.generate(node.num)}, {self.generate(node.params)})"
+            elif node.name == "pin":
+                return f"_execute_set_pin({self.generate(node.num)}, {self.generate(node.params)})"
+            else:
+                raise RuntimeError(f"Unknown set target '{node.name}.{node.type_}'")
         
         elif isinstance(node, ConstAssignNode):
             # Handling constant assignments and writing them natively to a CSV
@@ -151,8 +239,10 @@ class interpreter:
 
             with open(csv_file_path, mode='a', newline='') as csvfile:
                 data = [node.name, val_str]
+                write_header = csvfile.tell() == 0
                 writer = csv.DictWriter(csvfile, fieldnames=['name', 'value'])
-                writer.writeheader()
+                if write_header:
+                    writer.writeheader()
                 writer.writerow(dict(zip(['name', 'value'], data)))
             return f"{node.name} = {val_str}"
 
@@ -171,7 +261,7 @@ class interpreter:
             # Native random integration
             start = self.generate(node.start)
             end = self.generate(node.end)
-            return str(random.randint(int(start), int(end)))
+            return f"random.randint({start}, {end})"
         
         elif isinstance(node, NoneNode):
             return "None"
@@ -189,7 +279,7 @@ class interpreter:
                 return str(node.value)
             
         elif isinstance(node, SqrtNode):
-            return f"{math.sqrt(float(self.generate(node.value)))}"
+            return f"math.sqrt(float({self.generate(node.value)}))"
         
         elif isinstance(node, StringNode):
             return repr(node.value)
@@ -266,7 +356,21 @@ class interpreter:
         
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
-        
+
+        elif isinstance(node, FuncNode):
+            params_str = ", ".join(node.params)
+            code = f"def {node.name}({params_str}):\n"
+            body = self.indent_block(self.generate(node.body))
+            code += body
+            return code
+
+        elif isinstance(node, AttributeNode):
+            return f"{self.generate(node.obj)}.{node.attr}"
+
+        elif isinstance(node, CallNode):
+            args_str = ", ".join(self.generate(arg) for arg in node.arg)
+            return f"{self.generate(node.func_name)}({args_str})"
+
         elif isinstance(node, CastNode):
             return f"{node.cast_type}({self.generate(node.value)})"
         
