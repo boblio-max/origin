@@ -84,7 +84,12 @@ class Parser:
             end = self.comparison()
             self.eat("SYMBOL")          
             return RangeNode(start, end)
-        
+        if tok.type == "KEYWORD" and tok.value == "reverse":
+            self.eat("KEYWORD")
+            self.eat("SYMBOL")
+            param = self.comparison()
+            self.eat("SYMBOL")
+            return ReverseNode(param)
         if tok.type == "IDENT":
             node = VarNode(self.eat("IDENT").value)
             while True:

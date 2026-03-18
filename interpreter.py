@@ -357,6 +357,9 @@ class interpreter:
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
 
+        elif isinstance(node, ReverseNode):
+            return f"reversed({self.generate(node.param)})"
+
         elif isinstance(node, FuncNode):
             params_str = ", ".join(node.params)
             code = f"def {node.name}({params_str}):\n"

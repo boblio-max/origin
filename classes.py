@@ -93,7 +93,12 @@ class RangeNode(ASTNode):
         self.end = end
     def __repr__(self):
         return f"RangeNode({self.start}, {self.end})"
-    
+class ReverseNode(ASTNode):
+    def __init__(self, param):
+        self.param = param
+    def __repr__(self):
+        return f"ReverseNode({self.param})"
+
 class ListNode(ASTNode):
     """Represents an inline declaration of a list."""
     def __init__(self, elements):
