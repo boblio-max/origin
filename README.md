@@ -1,4 +1,4 @@
-# Origin Programming Language v1.7
+# Origin Programming Language v1.8
 
 > [!IMPORTANT]
 > **ORIGIN IS TRANSITIONING TO A BYTECODE COMPILER**
