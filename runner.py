@@ -1,19 +1,52 @@
-from lexer import lex
-from parser import Parser
-from interpreter import interpreter
-# Example code as if it were in code.txt
-code_lines = []
-with open("code.txt", 'r') as file:
-        for line in file:
-            code_lines.append(line.strip())
+import sys
+import os
+def find_or_files(folder: str) -> list[str]:
+    matches = []
+    for root, _, files in os.walk(folder):
+        for file in files:
+            if file.endswith(".or"):
+                matches.append(os.path.join(root, file))
+    return matches
 
-# 1. Tokenize the code
-tokens = lex(code_lines)
+def run_origin(file_path):
+    folder = sys.argv[1] if len(sys.argv) > 1 else "."
+    files = find_or_files(folder)
+    if not files:
+        print("No .or files found.")
+    else:
+        with open("classes.txt", "w", encoding="utf-8") as out:
+            for path in files:
+                header = f"\n{'='*40}\n{path}\n{'='*40}\n"
+                # print(header, end="")
+                out.write(header)
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                # print(content)
+                out.write(content + "\n")
+        
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# 2. Parse tokens into an AST
-parser = Parser(tokens)
-ast = parser.program()
+    from lexer import lex
+    from parser import Parser
+    from interpreter import interpreter, _execute_servo, _get_servo_kit
 
-origin = interpreter()
-origin_code = origin.generate(ast)
-exec(origin_code)
+    with open(file_path, "r") as f:
+        code_lines = [line.rstrip("\n") for line in f]
+
+    tokens = lex(code_lines)
+    parser = Parser(tokens)
+    ast = parser.program()
+    origin = interpreter()
+    generated = origin.generate(ast)
+
+    exec(generated, {
+        "_execute_servo": _execute_servo,
+        "_get_servo_kit": _get_servo_kit,
+    })
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: origin <file.or>")
+        sys.exit(1)
+
+    run_origin(sys.argv[1])

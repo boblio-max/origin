@@ -22,7 +22,7 @@ class Parser:
         tokens (list[lexer.Token]): Input token sequence.
         pos (int): Current token index within ``tokens``.
     """
-    types = {"int":"float", "float":"int", "str": "str"}
+    types = {"int":"float", "float":"int", "str": "str", "bool": "bool"}
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
@@ -49,6 +49,7 @@ class Parser:
             return tok
         raise SyntaxError(f"Expected {type_}, got {tok.type} ({tok.value})")
 
+    
     def factor(self):
         """Parse the smallest expression units: literals, identifiers, calls.
 
@@ -79,31 +80,26 @@ class Parser:
         if tok.type == "KEYWORD" and tok.value == "range":
             self.eat("KEYWORD")          
             self.eat("SYMBOL")      
-            start = self.comparison()
+            start = self.special_expr()
             self.eat("SYMBOL")          
-            end = self.comparison()
+            end = self.special_expr()
             self.eat("SYMBOL")          
             return RangeNode(start, end)
-        if tok.type == "KEYWORD" and tok.value == "reverse":
-            self.eat("KEYWORD")
-            self.eat("SYMBOL")
-            param = self.comparison()
-            self.eat("SYMBOL")
-            return ReverseNode(param)
+        
         if tok.type == "IDENT":
             node = VarNode(self.eat("IDENT").value)
             while True:
                 # Handle list indexing: node[index]
                 if self.current_token().type == "BRACKET" and self.current_token().value == "[":
                     self.eat("BRACKET")
-                    index = self.comparison()
+                    index = self.special_expr()
                     self.eat("BRACKET")
                     node = IndexNode(node, index)
                 
                 # Handle dictionary indexing: node{key}
                 if self.current_token().type == "BRACKET" and self.current_token().value == "{":
                     self.eat("BRACKET")
-                    key = self.comparison()
+                    key = self.special_expr()
                     self.eat("BRACKET")
                     node = IndexNode(node, key)                    
 
@@ -112,10 +108,10 @@ class Parser:
                     self.eat("SYMBOL")  # (
                     args = []
                     if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
-                        args.append(self.comparison())
+                        args.append(self.special_expr())
                         while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
                             self.eat("SYMBOL")
-                            args.append(self.comparison())
+                            args.append(self.special_expr())
                     self.eat("SYMBOL")  # )
                     node = CallNode(node, args)
 
@@ -140,25 +136,41 @@ class Parser:
         if tok.type == "KEYWORD" and tok.value == "sqrt":
             self.eat("KEYWORD")
             self.eat("SYMBOL")  # (
-            value = self.comparison()
+            value = self.special_expr()
             self.eat("SYMBOL")  # )
             return SqrtNode(value)
             
         if tok.type == "KEYWORD" and tok.value == "rand_num":
             self.eat("KEYWORD")
             self.eat("SYMBOL")
-            start = self.comparison()
+            start = self.special_expr()
             self.eat("SYMBOL")
-            end = self.comparison()
+            end = self.special_expr()
             self.eat("SYMBOL")
             return RandNumNode(start, end)
         
         # Parenthesized expressions
         if tok.type == "SYMBOL" and tok.value == "(":
             self.eat("SYMBOL")
-            node = self.comparison()
-            self.eat("SYMBOL")
-            return node
+            # Distinguish between grouping (single expression) and tuple literals
+            # If there is an immediate closing paren it's an empty grouping: return None?
+            # Parse first expression
+            first = self.special_expr()
+            # If comma follows, it's a tuple literal
+            if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                elements = [first]
+                while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                    # allow trailing comma before closing paren
+                    if self.current_token().type == "SYMBOL" and self.current_token().value == ")":
+                        break
+                    elements.append(self.special_expr())
+                self.eat("SYMBOL")  # )
+                return TupleNode(elements)
+            else:
+                # Not a tuple, expect closing paren and return grouped expression
+                self.eat("SYMBOL")  # )
+                return first
 
         if tok.type == "BRACKET" and tok.value == "[":
             return self.list_literal()
@@ -167,10 +179,10 @@ class Parser:
             return self.dict_literal()
             
         # Type casting variables
-        if tok.type == "KEYWORD" and tok.value in ("int", "str", "float"):
+        if tok.type == "KEYWORD" and tok.value in ("int", "str", "float", "bool"):
             func_name = self.eat("KEYWORD").value
             self.eat("SYMBOL")  # (
-            arg = self.comparison()
+            arg = self.special_expr()
             self.eat("SYMBOL")  # )
             return CastNode(func_name, arg)
         
@@ -185,7 +197,7 @@ class Parser:
         if tok.type == "KEYWORD" and tok.value == "len":
             self.eat("KEYWORD") 
             self.eat("SYMBOL") 
-            expr_node = self.comparison() 
+            expr_node = self.special_expr() 
             self.eat("SYMBOL")  
             return LenNode(expr_node)
         
@@ -193,9 +205,9 @@ class Parser:
         if tok.type == "KEYWORD" and tok.value == "call":
             self.eat("KEYWORD")
             self.eat("BRACKET")  # [
-            list_node = self.comparison()
+            list_node = self.special_expr()
             self.eat("SYMBOL")  # ,
-            pos = self.comparison()
+            pos = self.special_expr()
             self.eat("BRACKET")  # ]
             return listCallNode(list_node, pos)
             
@@ -210,10 +222,10 @@ class Parser:
             self.eat("BRACKET")  # [
 
             if self.current_token().value != "]":
-                elements.append(self.comparison())
+                elements.append(self.special_expr())
                 while self.current_token().value == ",":
                     self.eat("SYMBOL")
-                    elements.append(self.comparison())
+                    elements.append(self.special_expr())
 
             self.eat("BRACKET")  # ]
             return ListNode(elements)
@@ -225,16 +237,16 @@ class Parser:
             self.eat("BRACKET")  # {
 
             if self.current_token().value != "}":
-                key = self.comparison()
+                key = self.special_expr()
                 self.eat("SYMBOL")  # :
-                value = self.comparison()
+                value = self.special_expr()
                 elements[key] = value
 
                 while self.current_token().value == ",":
                     self.eat("SYMBOL")
-                    key = self.comparison()
+                    key = self.special_expr()
                     self.eat("SYMBOL")  # :
-                    value = self.comparison()
+                    value = self.special_expr()
                     elements[key] = value
 
             self.eat("BRACKET")  # }
@@ -243,10 +255,10 @@ class Parser:
         
     def term(self):
         """Evaluates multiplication and division with precedence."""
-        node = self.factor()
+        node = self.unary()
         while self.current_token().type == "ARITH" and self.current_token().value in ("*", "/"):
             op = self.eat("ARITH").value
-            node = BinOpNode(node, op, self.factor())
+            node = BinOpNode(node, op, self.unary())
         return node
 
     def expr(self):
@@ -274,7 +286,7 @@ class Parser:
             self.eat("SYMBOL")
             _type = self.eat("KEYWORD").value
             self.eat("ASSIGN")
-            value = self.comparison()
+            value = self.special_expr()
             return ConstAssignNode(name, value)
         elif type_ == "let":
             self.eat("KEYWORD")
@@ -282,25 +294,41 @@ class Parser:
             self.eat("SYMBOL")
             _type = self.eat("KEYWORD").value
             self.eat("ASSIGN")
-            value = self.comparison()
+            value = self.special_expr()
             return AssignNode(name, value, _type)
         elif type_ == "set":
             self.eat("KEYWORD")
             name = self.eat("IDENT").value
-            self.eat("BRACKET")
-            num = self.comparison()
-            self.eat("BRACKET")
-            self.eat("ASSIGN")
-            subtype = self.eat("IDENT").value
-            self.eat("SYMBOL")
-            param = self.comparison()
+            
+            if self.current_token().type == "BRACKET" and self.current_token().value == "[":
+                # Old syntax: set servo[0] = angle, 90
+                self.eat("BRACKET")
+                num = self.special_expr()
+                self.eat("BRACKET")
+                self.eat("ASSIGN")
+                subtype = self.eat("IDENT").value
+                if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                param = self.special_expr()
+            else:
+                # New syntax: set servo.angle 15, 0  OR  set pin 12, 1
+                subtype = None
+                if self.current_token().type == "SYMBOL" and self.current_token().value == ".":
+                    self.eat("SYMBOL")
+                    subtype = self.eat("IDENT").value
+                
+                num = self.special_expr()
+                if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                param = self.special_expr()
+                
             return SetNode(name, num, subtype, param)
         else:
             self.open_stmt()
     def print_stmt(self):
         """Handles built-in stream writing out via print."""
         self.eat("KEYWORD")
-        var = self.comparison()
+        var = self.special_expr()
         try:
             self.eat("KEYWORD") # as
             _type = self.eat("KEYWORD").value
@@ -318,7 +346,7 @@ class Parser:
                     return PrintNode(var, None)
                 
             elif var.type != _type:
-                raise SyntaxError(f"Type mismatch at {var.value}")
+                raise SyntaxError(f"Type mismatch at {getattr(var, 'value', getattr(var, 'name', 'unknown'))}")
         except SyntaxError:
             return PrintNode(var, None)
                     
@@ -361,7 +389,7 @@ class Parser:
         """Handles mapping collection string/array lengths respectively."""
         self.eat("KEYWORD")
         self.eat("SYMBOL")
-        value = self.comparison()
+        value = self.special_expr()
         self.eat("SYMBOL")
         return LenNode(value)
         
@@ -369,16 +397,16 @@ class Parser:
         """Specific array retrieval parser mapped contextually manually."""
         self.eat("KEYWORD")
         self.eat("BRACKET")  # [
-        list_node = self.comparison()
+        list_node = self.special_expr()
         self.eat("SYMBOL")  # ,
-        pos = self.comparison()
+        pos = self.special_expr()
         self.eat("BRACKET")  # ]
         return listCallNode(list_node, pos)
     
     def if_stmt(self):
         """Parses if / elif / else control flow structures recursively."""
         self.eat("KEYWORD")  # 'if'
-        condition = self.comparison()
+        condition = self.special_expr()
         then_body = self.block()
 
         elif_nodes = []
@@ -387,7 +415,7 @@ class Parser:
             tok = self.current_token()
             if tok.type == "KEYWORD" and tok.value == "elif":
                 self.eat("KEYWORD")
-                elif_condition = self.comparison()
+                elif_condition = self.special_expr()
                 elif_body = self.block()
                 elif_nodes.append(ElifNode(elif_condition, elif_body))
             else:
@@ -401,6 +429,28 @@ class Parser:
 
         return IfNode(condition, then_body, elif_nodes, else_body)
 
+    def py_stmt(self):
+        self.eat("KEYWORD")  # 'py'
+        self.eat("BRACKET")  # '{'
+        raw = ""
+        depth = 1
+        while depth > 0:
+            tok = self.current_token()
+            self.pos += 1
+            if tok.type == "BRACKET" and tok.value == "{":
+                depth += 1
+                raw += "{"
+            elif tok.type == "BRACKET" and tok.value == "}":
+                depth -= 1
+                if depth > 0:
+                    raw += "}"
+            elif tok.type == "NEWLINE":
+                raw += "\n"  # always emit a real newline, ignore token value
+            else:
+                raw += tok.value
+
+        return PyNode(raw.strip())
+            
     def try_stmt(self):
         """Parses structured error-catching boundaries (try-except)."""
         self.eat("KEYWORD")  # 'try'
@@ -434,7 +484,7 @@ class Parser:
     def while_stmt(self):
         """Parses infinite or condition-loop mapped behaviors conditionally."""
         self.eat("KEYWORD")
-        condition = self.comparison()
+        condition = self.special_expr()
         body = self.block()
         return WhileNode(condition, body)
 
@@ -560,12 +610,12 @@ class Parser:
         self.skip_newlines() 
         if self.current_token().type == "IDENT":
             start_pos = self.pos
-            target = self.comparison()
+            target = self.special_expr()
 
             # Direct mapping context
             if self.current_token().type == "ASSIGN":
                 self.eat("ASSIGN")
-                value = self.comparison()
+                value = self.special_expr()
                 if isinstance(target, IndexNode):
                     return IndexAssignNode(target.collection, target.index, value)
                 if isinstance(target, VarNode):
@@ -574,7 +624,7 @@ class Parser:
             # Complex compounding evaluations internally managed explicitly bounds inherently mapped naturally
             if isinstance(target, VarNode) and self.current_token().type == "ASSIGN_OP":
                 op = self.eat("ASSIGN_OP").value
-                value = self.comparison()
+                value = self.special_expr()
                 return CompoundAssignNode(target.name, op, value)
 
             self.pos = start_pos
@@ -631,11 +681,13 @@ class Parser:
                 return ContinueNode()
             if tok.type == "KEYWORD" and tok.value == "return":
                 self.eat("KEYWORD")
-                return ReturnNode(self.comparison())
+                return ReturnNode(self.special_expr())
             if tok.type == "KEYWORD" and tok.value == "yield":
                 self.eat("KEYWORD")
-                return YieldNode(self.comparison())
-        return self.comparison()
+                return YieldNode(self.special_expr())
+            if tok.type == "KEYWORD" and tok.value == "py":
+                return self.py_stmt()
+        return self.special_expr()
 
     def program(self):
         """Top-level mapping recursively encapsulating entirety logically distinct statements."""

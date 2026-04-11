@@ -24,7 +24,7 @@ TOKEN_REGEX = [
     (r"\d+",                 "INT"),      # Integer numbers
     (r"\".*?\"|'.*?'",       "STRING"),   # String literals
     (r"===|!==|==|!=|<=|>=|<>|<|>", "COMP"), # Comparison operators
-    (r"\&\&|\|\||and|or|not|!", "LOGIC"),    # Logical operators
+    (r"\&\&|\|\||\b(and|or|not)\b|!", "LOGIC"),    # Logical operators
     (r"\+\+|\-\-",           "UNARY"),    # Unary operators
     (r"\+=|\-=|\*=|\/=|\%=|\*\*=|\/\/=|&=|\|=", "ASSIGN_OP"), # Compound assignment operators
     (r"\?\?|->|=>|<=>|::",   "SPECIAL"),  # Special operators
@@ -33,7 +33,7 @@ TOKEN_REGEX = [
     (r"\-",                 "negate"),    # Negation operator
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
-    (r"\b(if|elif|else|for|while|return|int|reversed|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|break|input|continue|def|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
+    (r"\b(if|elif|open|else|for|while|return|py|int|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|break|input|continue|def|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"), # Identifiers
 ]
 

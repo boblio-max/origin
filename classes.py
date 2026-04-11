@@ -93,18 +93,20 @@ class RangeNode(ASTNode):
         self.end = end
     def __repr__(self):
         return f"RangeNode({self.start}, {self.end})"
-class ReverseNode(ASTNode):
-    def __init__(self, param):
-        self.param = param
-    def __repr__(self):
-        return f"ReverseNode({self.param})"
-
+    
 class ListNode(ASTNode):
     """Represents an inline declaration of a list."""
     def __init__(self, elements):
         self.elements = elements
     def __repr__(self):
         return f"ListNode({self.elements})"
+
+class TupleNode(ASTNode):
+    """Represents an inline declaration of a tuple."""
+    def __init__(self, elements):
+        self.elements = elements
+    def __repr__(self):
+        return f"TupleNode({self.elements})"
     
 class DictNode(ASTNode):
     """Represents an inline declaration of a dictionary."""
@@ -369,6 +371,13 @@ class LogicOpNode(ASTNode):
     def __repr__(self):
         return f"LogicOpNode({self.left}, {self.op!r}, {self.right})"
 
+class PyNode(ASTNode):
+    """Represents a raw Python code block to be executed directly."""
+    def __init__(self, code):
+        self.code = code
+    def __repr__(self):
+        return f"PyNode({self.code!r})"
+    
 class NotNode(ASTNode):
     """Represents a logical negation of evaluating boolean logic."""
     def __init__(self, expr):
