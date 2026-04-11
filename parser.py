@@ -454,9 +454,8 @@ class Parser:
     def try_stmt(self):
         """Parses structured error-catching boundaries (try-except)."""
         self.eat("KEYWORD")  # 'try'
-        self.skip_newlines() 
-        self.eat("BRACKET")   # '{'
-        try_body = self.block()
+        self.skip_newlines()  
+        try_body = self.block() # '{'
 
         except_nodes = []
         while True:
