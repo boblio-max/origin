@@ -27,6 +27,11 @@ class Parser:
         self.tokens = tokens
         self.pos = 0
 
+    def _set_line(self, node, line):
+        if node and hasattr(node, '__dict__'):
+            node.line = line
+        return node
+
     def current_token(self):
         """Return the token at the current parser position.
 
@@ -65,6 +70,10 @@ class Parser:
             self.eat("INT")
             return NumberNode(int(tok.value), "int")
 
+        if tok.type == "HEX":
+            self.eat("HEX")
+            return NumberNode(int(tok.value, 16), "int")
+
         if tok.type == "negate":
             self.eat("negate")
             return UnaryOpNode('-', self.factor())
@@ -87,7 +96,36 @@ class Parser:
             return RangeNode(start, end)
         
         if tok.type == "IDENT":
-            node = VarNode(self.eat("IDENT").value)
+            name = self.eat("IDENT").value
+            
+            # Special logic for hardware primitives with parentheseless calls
+            if name in ("i2c", "spi", "uart") and self.current_token().type == "SYMBOL" and self.current_token().value == ".":
+                self.eat("SYMBOL")  # .
+                method = self.eat("IDENT").value
+                args = []
+                # If the next token is not a terminator, parse arguments
+                # We skip newlines because hardware calls might be on a single line or spanned
+                self.skip_newlines()
+                if self.current_token().type not in ("NEWLINE", "EOF", "SYMBOL", "BRACKET") or \
+                   (self.current_token().type == "SYMBOL" and self.current_token().value == "("):
+                    # Handle parenthesized calls if they use them anyway
+                    if self.current_token().value == "(":
+                        self.eat("SYMBOL")
+                        if self.current_token().value != ")":
+                            args.append(self.special_expr())
+                            while self.current_token().value == ",":
+                                self.eat("SYMBOL")
+                                args.append(self.special_expr())
+                        self.eat("SYMBOL")
+                    else:
+                        # Parentheseless call
+                        args.append(self.special_expr())
+                        while self.current_token().value == ",":
+                            self.eat("SYMBOL")
+                            args.append(self.special_expr())
+                return HardwarePrimitiveNode(name, method, args)
+
+            node = VarNode(name)
             while True:
                 # Handle list indexing: node[index]
                 if self.current_token().type == "BRACKET" and self.current_token().value == "[":
@@ -96,17 +134,11 @@ class Parser:
                     self.eat("BRACKET")
                     node = IndexNode(node, index)
                 
-                # Handle dictionary indexing: node{key}
-                if self.current_token().type == "BRACKET" and self.current_token().value == "{":
-                    self.eat("BRACKET")
-                    key = self.special_expr()
-                    self.eat("BRACKET")
-                    node = IndexNode(node, key)                    
-
                 # Handle function calls: node(arg1, arg2...)
                 elif self.current_token().type == "SYMBOL" and self.current_token().value == "(":
                     self.eat("SYMBOL")  # (
                     args = []
+                    self.skip_newlines()
                     if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
                         args.append(self.special_expr())
                         while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
@@ -174,9 +206,13 @@ class Parser:
 
         if tok.type == "BRACKET" and tok.value == "[":
             return self.list_literal()
-            
         if tok.type == "BRACKET" and tok.value == "{":
             return self.dict_literal()
+        if tok.type == "KEYWORD" and tok.value == "get":
+            self.eat("KEYWORD")
+            name = self.eat("IDENT").value
+            key = self.special_expr()
+            return IndexNode(VarNode(name), key)
             
         # Type casting variables
         if tok.type == "KEYWORD" and tok.value in ("int", "str", "float", "bool"):
@@ -220,12 +256,18 @@ class Parser:
         elements = []
         if self.current_token().type == "BRACKET" and self.current_token().value == "[":
             self.eat("BRACKET")  # [
+            self.skip_newlines()
 
             if self.current_token().value != "]":
                 elements.append(self.special_expr())
+                self.skip_newlines()
                 while self.current_token().value == ",":
                     self.eat("SYMBOL")
+                    self.skip_newlines()
+                    if self.current_token().value == "]":
+                        break
                     elements.append(self.special_expr())
+                    self.skip_newlines()
 
             self.eat("BRACKET")  # ]
             return ListNode(elements)
@@ -235,19 +277,27 @@ class Parser:
         elements = {}
         if self.current_token().type == "BRACKET" and self.current_token().value == "{":
             self.eat("BRACKET")  # {
+            self.skip_newlines()
 
             if self.current_token().value != "}":
                 key = self.special_expr()
                 self.eat("SYMBOL")  # :
+                self.skip_newlines()
                 value = self.special_expr()
                 elements[key] = value
+                self.skip_newlines()
 
                 while self.current_token().value == ",":
                     self.eat("SYMBOL")
+                    self.skip_newlines()
+                    if self.current_token().value == "}":
+                        break
                     key = self.special_expr()
                     self.eat("SYMBOL")  # :
+                    self.skip_newlines()
                     value = self.special_expr()
                     elements[key] = value
+                    self.skip_newlines()
 
             self.eat("BRACKET")  # }
             return DictNode(elements)
@@ -284,7 +334,11 @@ class Parser:
             self.eat("KEYWORD")
             name = self.eat("IDENT").value
             self.eat("SYMBOL")
-            _type = self.eat("KEYWORD").value
+            tok = self.current_token()
+            if tok.type in ("KEYWORD", "IDENT"):
+                _type = self.eat(tok.type).value
+            else:
+                raise SyntaxError(f"Expected type annotation, got {tok.type} ({tok.value})")
             self.eat("ASSIGN")
             value = self.special_expr()
             return ConstAssignNode(name, value)
@@ -292,7 +346,11 @@ class Parser:
             self.eat("KEYWORD")
             name = self.eat("IDENT").value
             self.eat("SYMBOL")
-            _type = self.eat("KEYWORD").value
+            tok = self.current_token()
+            if tok.type in ("KEYWORD", "IDENT"):
+                _type = self.eat(tok.type).value
+            else:
+                raise SyntaxError(f"Expected type annotation, got {tok.type} ({tok.value})")
             self.eat("ASSIGN")
             value = self.special_expr()
             return AssignNode(name, value, _type)
@@ -349,7 +407,17 @@ class Parser:
                 raise SyntaxError(f"Type mismatch at {getattr(var, 'value', getattr(var, 'name', 'unknown'))}")
         except SyntaxError:
             return PrintNode(var, None)
-                    
+    
+    def check_stmt(self):
+        """Handles built-in validation checks via check statements."""
+        self.eat("KEYWORD")
+        condition = self.eat("IDENT")
+        self.eat("IDENT") # Type? 
+                   
+        self.eat("SYMBOL") # ?
+        if condition.type == "KEYWORD" and condition.value == "type":
+            return checkNode(type(condition), "type")
+          
     def open_stmt(self):
         self.eat("KEYWORD")
         path = self.eat("STRING").value
@@ -454,7 +522,7 @@ class Parser:
     def try_stmt(self):
         """Parses structured error-catching boundaries (try-except)."""
         self.eat("KEYWORD")  # 'try'
-        self.skip_newlines()  
+        self.skip_newlines()   
         try_body = self.block() # '{'
 
         except_nodes = []
@@ -496,6 +564,7 @@ class Parser:
             self.eat("SYMBOL")
         except:
             threads = 0
+        self.skip_newlines()
         body = self.block()
         return ParallelNode(body, threads)
     
@@ -602,6 +671,12 @@ class Parser:
         return node
 
     def statement(self):
+        self.skip_newlines()
+        line = self.current_token().line
+        node = self._statement()
+        return self._set_line(node, line)
+
+    def _statement(self):
         """
         Parses overarching flow statements routing contexts logically into
         AST evaluations bound implicitly across scopes cleanly uniformly spanning all logic.
@@ -619,6 +694,8 @@ class Parser:
                     return IndexAssignNode(target.collection, target.index, value)
                 if isinstance(target, VarNode):
                     return AssignNode(target.name, value, target.type)
+                if isinstance(target, AttributeNode):
+                    return AttributeAssignNode(target.obj, target.attr, value)
 
             # Complex compounding evaluations internally managed explicitly bounds inherently mapped naturally
             if isinstance(target, VarNode) and self.current_token().type == "ASSIGN_OP":

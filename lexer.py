@@ -20,6 +20,7 @@ TOKEN_REGEX = [
     (r"[ \t]+|None",         None),       # Ignore whitespace and 'None'
     (r"#.*",                 None),       # Ignore comments
     (r"\n",                  "NEWLINE"),  # Newline characters
+    (r"0x[0-9a-fA-F]+",      "HEX"),      # Hexadecimal numbers
     (r"\d+\.\d+",            "FLOAT"),    # Floating-point numbers
     (r"\d+",                 "INT"),      # Integer numbers
     (r"\".*?\"|'.*?'",       "STRING"),   # String literals
@@ -33,7 +34,7 @@ TOKEN_REGEX = [
     (r"\-",                 "negate"),    # Negation operator
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
-    (r"\b(if|elif|open|else|for|while|return|py|int|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|break|input|continue|def|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
+    (r"\b(if|elif|open|else|check|for|get|while|return|py|int|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|break|input|continue|def|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"), # Identifiers
 ]
 

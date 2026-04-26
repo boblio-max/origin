@@ -12,10 +12,10 @@ class ASTNode:
     """Abstract base type for AST nodes.
 
     Subclass instances are plain data containers consumed by the interpreter
-    and code-generation routines. This base class is intentionally empty and
-    serves as a type marker.
+    and code-generation routines.
     """
-    pass
+    def __init__(self, line=None):
+        self.line = line
 
 class ExecNode(ASTNode):
     """Represents an execution of an embedded string evaluation/command."""
@@ -57,13 +57,13 @@ class VarNode(ASTNode):
     
 class TryNode(ASTNode): 
     """Represents a try-except error handling block."""
-    def __init__(self, try_block, except_blocks=None, else_block=None):
-        self.try_block = try_block
-        self.except_blocks = except_blocks or []
-        self.else_block = else_block
+    def __init__(self, try_body, except_body=None, else_body=None):
+        self.try_body = try_body
+        self.except_body = except_body or []
+        self.else_body = else_body
 
     def __repr__(self):
-        return f"TryNode({self.try_block}, {self.except_blocks}, {self.else_block})"
+        return f"TryNode({self.try_body}, {self.except_body}, {self.else_body})"
     
 class openNode(ASTNode): 
     def __init__(self, name, path, _type):
@@ -142,6 +142,15 @@ class IndexAssignNode(ASTNode):
         self.index = index
         self.value = value
 
+class AttributeAssignNode(ASTNode):
+    """Represents an assignment to an attribute of an object (e.g., obj.attr = value)."""
+    def __init__(self, obj, attr, value):
+        self.obj = obj
+        self.attr = attr
+        self.value = value
+    def __repr__(self):
+        return f"AttributeAssignNode({self.obj}, {self.attr}, {self.value})"
+
 class BinOpNode(ASTNode):
     """Represents a binary operation between two nodes (e.g., +, -, *, /)."""
     def __init__(self, left, op, right):
@@ -157,6 +166,15 @@ class AttributeNode(ASTNode):
         self.attr = attr
     def __repr__(self):
         return f"AttributeNode({self.obj}, {self.attr})"
+
+class HardwarePrimitiveNode(ASTNode):
+    """Represents a hardware protocol primitive call (i2c, spi, uart)."""
+    def __init__(self, namespace, method, args):
+        self.namespace = namespace
+        self.method = method
+        self.args = args
+    def __repr__(self):
+        return f"HardwarePrimitiveNode({self.namespace}, {self.method}, {self.args})"
     
 class CallerNode(ASTNode):
     """Represents a function call execution."""
@@ -249,7 +267,7 @@ class BlockNode(ASTNode):
     def __repr__(self):
         return f"BlockNode({self.statements})"
 
-class ImportNode:
+class ImportNode(ASTNode):
     """Represents an external library import statement."""
     def __init__(self, name_token):
         self.name = name_token  
@@ -257,7 +275,7 @@ class ImportNode:
     def __repr__(self):
         return f"ImportNode({self.name})"
 
-class ImportFromNode:
+class ImportFromNode(ASTNode):
     """Represents an import 'from' statement to import a specific module element."""
     def __init__(self, name, library):
         self.name = name
@@ -266,7 +284,7 @@ class ImportFromNode:
     def __repr__(self):
         return f"ImportFromNode({self.name}, {self.lib})"
 
-class SetNode:
+class SetNode(ASTNode):
     """Represents a specialized assignment node for settings and state modifications."""
     def __init__(self, name, num, type_, params):
         self.name = name
@@ -276,7 +294,7 @@ class SetNode:
     def __repr__(self):
         return f"SetNode({self.name}, {self.num},{self.type_},{self.params})"
 
-class ImportAsNode:
+class ImportAsNode(ASTNode):
     """Represents an import statement bound to a specific local alias."""
     def __init__(self, name, newName):
         self.name = name
@@ -285,7 +303,7 @@ class ImportAsNode:
     def __repr__(self):
         return f"ImportAsNode({self.name}, {self.nName})"
     
-class FuncNode:
+class FuncNode(ASTNode):
     """Represents a defined function including parameters and execution block."""
     def __init__(self, name, params, body):
         self.name = name
@@ -352,6 +370,15 @@ class BoolNode(ASTNode):
         self.type = "bool"
     def __repr__(self):
         return f"BoolNode({self.value})"
+
+class checkNode(ASTNode):
+    """Represents a validation or assertion check within the program."""
+    def __init__(self, condition, _type):
+        self.condition = condition
+        self.type = _type
+    def __repr__(self):
+        return f"CheckNode({self.condition}, {self.type})"
+
 
 class CompoundAssignNode(ASTNode):
     """Represents variables resolving an operation during its assignment phase (e.g., +=)."""

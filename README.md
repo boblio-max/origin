@@ -18,7 +18,7 @@
 *   **Strict Typing**: Mandatory type annotations (`let x: int = 10`) for predictable state and AI-native safety.
 *   **Safe Hardware I/O**: Automatic angle clamping (0–180°) for servos to prevent physical damage.
 *   **Full Interoperability**: Embed raw Python blocks directly within Origin scripts.
-*   **Modern Logic**: Support for `try/except/else`, `parallel` blocks, and a robust module inclusion system.
+*   **Modern Logic**: Support for Object-Oriented Programming (classes), `try/except/else`, `parallel` thread blocks, and a robust module inclusion system.
 
 ---
 
@@ -51,7 +51,7 @@ let   data: none = none       # None literal
 ```
 
 ### 2. Hardware Control
-Control hardware directly with the `set` namespace.
+Control hardware directly with the `set` namespace and native protocol primitives.
 
 ```origin
 # Set Servo 1 to 90 degrees (clamped 0-180)
@@ -59,6 +59,10 @@ set servo.angle 1, 90
 
 # Drive BCM Pin 12 HIGH
 set pin 12, 1
+
+# Parentheseless I2C, SPI, and UART calls
+i2c.read 0x40, 4
+spi.write 0x01
 ```
 
 ### 3. Data Structures
@@ -95,6 +99,17 @@ import robotics_utils        # Prepends robotics_utils.or to current file
 from math import sqrt        # Import directly from Python libraries
 
 let val: float = sqrt(144)
+```
+
+### 6. Object-Oriented Programming
+Define classes with fields and methods natively for structured development.
+
+```origin
+class Sensor (pin type) {
+    def read() {
+        return pin
+    }
+}
 ```
 
 ---
