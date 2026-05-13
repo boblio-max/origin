@@ -3,489 +3,314 @@
 AST-to-Python translator and execution helpers.
 
 This module implements a small interpreter that traverses the AST produced by
-``parser.Parser`` and emits executable Python source strings. Emitted code may
-be executed directly or written to temporary files for separate runners. The
-interpreter also records imports and constants to simple CSV trackers used by
-the wider toolchain.
+``parser.Parser`` and emits executable Python source strings.
 """
 
-# Standard library imports used by code generation and runtime support.
-
-from attrs import field
-from parser import *
-from classes import *
 import random
 import csv
-import math, sys
+import math
+import sys
+import os
 import subprocess
 from multiprocessing import Process
+from classes import *
 
-# Global dictionary to store constant variables and their values
-CONST_VARS = {}
-csv_file_path = "CONST_VARS.csv"
-
-# Clear or create the CSV file for constant variables
-with open(csv_file_path, "w") as f:
-    pass
-
-# List to store imported modules (for tracking purposes)
-imports = []
-csv_file_path_imports = "imports.csv"
-with open(csv_file_path_imports, "w") as f:
-    pass
-
-classes = {}
-csv_file_path_classes = "classes.csv"
-with open(csv_file_path_classes, "w") as f:
-    pass
-# --- Hardware Helpers ---
-_servo_kit = None
-_gpio_initialized = False
-_i2c_bus = None
-_spi_dev = None
-_uart_ser = None
-
-SERVO_MIN_ANGLE = 0
-SERVO_MAX_ANGLE = 180
-
-def _get_servo_kit():
-    global _servo_kit
-    if _servo_kit is None:
-        try:
-            from adafruit_servokit import ServoKit
-            _servo_kit = ServoKit(channels=16)
-        except ImportError as e:
-            raise ImportError("adafruit_servokit is not installed.") from e
-    return _servo_kit
-
-def _ensure_gpio():
-    global _gpio_initialized
-    if not _gpio_initialized:
-        try:
-            import RPi.GPIO as GPIO
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setwarnings(False)
-            _gpio_initialized = True
-        except ImportError as e:
-            raise ImportError("RPi.GPIO is not installed.") from e
-    return _gpio_initialized
-
-def _execute_servo(index: int, angle: float) -> None:
-    index = int(index)
-    if not (0 <= index <= 15):
-        raise ValueError(f"Servo index {index} out of range (0-15)")
-
-    angle = float(angle)
-    if angle < SERVO_MIN_ANGLE or angle > SERVO_MAX_ANGLE:
-        clamped = max(SERVO_MIN_ANGLE, min(SERVO_MAX_ANGLE, angle))
-        print(f"[WARN] Servo angle {angle}° clamped to {clamped}°.")
-        angle = clamped
-
-    kit = _get_servo_kit()
-    kit.servo[index].angle = angle
-
-def _execute_set_pin(pin: int, state: int) -> None:
-    import RPi.GPIO as GPIO
-    pin = int(pin)
-    if state not in (0, 1):
-        raise ValueError(f"Pin state must be 0 or 1, got {state}")
-
-    _ensure_gpio()
-    GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(pin, GPIO.HIGH if state == 1 else GPIO.LOW)
-
-def gpio_cleanup() -> None:
-    global _gpio_initialized
-    if _gpio_initialized:
-        try:
-            import RPi.GPIO as GPIO
-            GPIO.cleanup()
-        except:
-            pass
-        _gpio_initialized = False
-
-def _get_i2c_bus(bus_id=1):
-    global _i2c_bus
-    if _i2c_bus is None:
-        try:
-            import smbus2
-            _i2c_bus = smbus2.SMBus(bus_id)
-        except ImportError:
-            raise ImportError("smbus2 is not installed.")
-    return _i2c_bus
-
-def _get_spi_dev(bus=0, device=0):
-    global _spi_dev
-    if _spi_dev is None:
-        try:
-            import spidev
-            _spi_dev = spidev.SpiDev()
-            _spi_dev.open(bus, device)
-        except ImportError:
-            raise ImportError("spidev is not installed.")
-    return _spi_dev
-
-def _get_uart_ser(port='/dev/ttyS0', baud=9600):
-    global _uart_ser
-    if _uart_ser is None:
-        try:
-            import serial
-            _uart_ser = serial.Serial(port, baud, timeout=1)
-        except ImportError:
-            raise ImportError("pyserial is not installed.")
-    return _uart_ser
-
-def _execute_i2c_read(addr, reg, size=1):
-    bus = _get_i2c_bus()
-    if size == 1:
-        return bus.read_byte_data(addr, reg)
-    else:
-        return bus.read_i2c_block_data(addr, reg, size)
-
-def _execute_i2c_write(addr, reg, data):
-    bus = _get_i2c_bus()
-    if isinstance(data, int):
-        bus.write_byte_data(addr, reg, data)
-    else:
-        bus.write_i2c_block_data(addr, reg, data)
-
-def _execute_spi_transfer(data):
-    spi = _get_spi_dev()
-    return spi.xfer2(data)
-
-def _execute_uart_read(size=1):
-    ser = _get_uart_ser()
-    return ser.read(size)
-
-def _execute_uart_write(data):
-    ser = _get_uart_ser()
-    if isinstance(data, str):
-        data = data.encode()
-    ser.write(data)
-
-# --- Interpreter ---
-# The interpreter takes the AST and generates Python code as a string.
-# It handles all the different node types and translates them into valid Python code.
-# For example, an AssignNode will generate a line of code that assigns a value to a variable,
-# while an IfNode will generate an if statement with the appropriate indentation.
-# The generated code is then executed using exec() in the runner(Alt/Byte).py file.
-
-class interpreter:
-    """Generate Python source from the AST.
-
-    Instances expose :meth:`generate` which performs a recursive traversal of
-    AST nodes and returns a string containing the equivalent Python code for
-    that subtree.
-    """
+class Interpreter:
+    """Generate Python source from the AST."""
 
     def __init__(self):
         self.variable_types = {}
+        # Internal tracking (optional, could be moved to a flag)
+        self.CONST_VARS = {}
+        self.imports = []
+        self.classes = {}
 
     def get_type(self, node):
         """Infer the type of an AST node."""
         if hasattr(node, 'type') and node.type is not None:
             return node.type
-        
         if isinstance(node, VarNode):
             return self.variable_types.get(node.name)
-        
         if isinstance(node, BinOpNode):
             left_type = self.get_type(node.left)
             right_type = self.get_type(node.right)
-            # Simplistic numeric promotion
             if left_type == "float" or right_type == "float":
                 return "float"
-            return left_type # Or default to "int"
-        
-        if isinstance(node, UnaryOpNode):
-            return self.get_type(node.node)
-        
-        if isinstance(node, CallNode):
-            # For now, we don't track function return types, so we might return None
-            # or add a way to track them.
-            return None
-            
-        return getattr(node, 'type', None)
+            return left_type
+        return None
 
     def generate(self, node):
-        """Recursively translate an AST node into Python source text.
+        """Recursively translate an AST node into Python source text."""
+        if node is None:
+            return ""
 
-        The method returns a Python code fragment for the provided node. For
-        structured nodes (blocks, functions, control flow) the returned text
-        will contain one or more properly indented statements. Callers should
-        not assume the returned string is a complete program unless the root
-        node is a :class:`ProgramNode`.
+        # Inject line tracking for statements (nodes that have a line attribute)
+        line_marker = ""
+        if hasattr(node, 'line') and node.line is not None:
+            # We use a global to track the current line so it survives inside functions
+            line_marker = f"globals()['_origin_runtime_line'] = {node.line}\n"
 
-        Args:
-            node (ASTNode): Node to translate.
-
-        Returns:
-            str: Python source representing ``node``.
-
-        Raises:
-            RuntimeError: For illegal operations (constant reassignment) or when
-                encountering an unrecognized node type.
-        """
         if isinstance(node, ProgramNode):
-            # Evaluate all top-level statements
             return "\n".join(self.generate(stmt) for stmt in node.statements)
 
         elif isinstance(node, BlockNode):
-            # Evaluate an inner block of statements
             return "\n".join(self.generate(stmt) for stmt in node.statements)
+            
+        # Add the line marker to the generated code for other nodes
+        res = self._generate_core(node)
+        return line_marker + res
 
-        elif isinstance(node, ExecNode):
-            # Writes code to a temporary file and dispatches it via a subprocess
-            file_to_run = "temp_exec.py"
-            with open("temp_exec.py", mode='w', newline='') as file:
-                file.write(node.code)
-            command = [sys.executable, "runnerAlt.py", file_to_run]
-            result = subprocess.run(command, capture_output=True, text=True)
-            if result.returncode != 0:
-                raise RuntimeError(f"ExecNode subprocess failed:\n{result.stderr}")
+    def _generate_core(self, node):
+        """The actual generation logic, separated from the line tracking wrapper."""
+        if isinstance(node, ExecNode):
+            # Fragile but kept for compatibility - improved to use absolute paths
+            runner_path = os.path.join(os.path.dirname(__file__), "runner.py")
+            temp_file = "temp_exec.py"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                f.write(node.code)
+            subprocess.run([sys.executable, runner_path, temp_file])
             return ""
-                
-        elif isinstance(node, ClassNode):
-            with open(csv_file_path_classes, mode='a', newline='') as classesfile:
-                data = [node.name, node.fields, node.methods]
-                write_header = classesfile.tell() == 0
-                writer = csv.DictWriter(classesfile, fieldnames=['name', 'fields', 'methods'])
-                if write_header:
-                    writer.writeheader()
-                writer.writerow(dict(zip(['name', 'fields', 'methods'], data)))
-            return ""
-        elif isinstance(node, openNode):
-            return f"{node.name} = open({node.path}, {node.type})"
+
+        elif isinstance(node, PyNode):
+            return node.code
+
         elif isinstance(node, AssignNode):
-            # Protect against constant overriding
-            if node.name in CONST_VARS:
-                raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
+            if node.name in self.CONST_VARS:
+                raise RuntimeError(f"Cannot reassign constant '{node.name}'")
             
-            value_type = self.get_type(node.value)
+            val_type = self.get_type(node.value)
+            if node.type and val_type and node.type != val_type:
+                raise TypeError(f"Type Mismatch: {node.name} is {node.type} but got {val_type}")
             
-            # Enforce strict typing
-            if node.type is not None:
-                # Declaration with type (let x: int = ...)
-                if value_type is not None and value_type != node.type:
-                    # Allow int to float promotion? Let's be strict for now as requested.
-                    raise TypeError(f"Type Mismatch: variable '{node.name}' declared as {node.type} but assigned {value_type}")
+            if node.type:
                 self.variable_types[node.name] = node.type
-            elif node.name in self.variable_types:
-                # Re-assignment without type (x = ...)
-                expected_type = self.variable_types[node.name]
-                if value_type is not None and value_type != expected_type:
-                    raise TypeError(f"Type Mismatch: variable '{node.name}' is {expected_type} but assigned {value_type}")
+                
+            return f"{node.name} = {self.generate(node.value)}"
 
-            IDENT_block = self.generate(node.value)
-            return f"{node.name} = {IDENT_block}"
-
-        elif isinstance(node, SetNode):
-            # Custom setter, e.g., setting servo angles or GPIO pins
-            if node.name in CONST_VARS:
-                raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
-
-            if node.name == "servo" and node.type_ == "angle":
-                return (
-                    f"from adafruit_servokit import ServoKit\n"
-                    f"_kit = ServoKit(channels=16) if '_kit' not in dir() else _kit\n"
-                    f"_kit.servo[{self.generate(node.num)}].angle = {self.generate(node.params)}"
-                )
-            else:
-                return f"{node.name}.{node.type_} = {self.generate(node.params)}"
-        
         elif isinstance(node, ConstAssignNode):
-            # Handling constant assignments and writing them natively to a CSV
-            if node.name in CONST_VARS:
-                raise RuntimeError(f"Cannot reassign constant variable '{node.name}'")
-            
+            if node.name in self.CONST_VARS:
+                raise RuntimeError(f"Cannot reassign constant '{node.name}'")
             val_str = self.generate(node.value)
-            CONST_VARS[node.name] = val_str
-
-            with open(csv_file_path, mode='a', newline='') as csvfile:
-                data = [node.name, val_str]
-                write_header = csvfile.tell() == 0
-                writer = csv.DictWriter(csvfile, fieldnames=['name', 'value'])
-                if write_header:
-                    writer.writeheader()
-                writer.writerow(dict(zip(['name', 'value'], data)))
+            self.CONST_VARS[node.name] = val_str
             return f"{node.name} = {val_str}"
 
-        elif isinstance(node, ParallelNode):
-            # Handles simulated parallelism operations
-            arr = [str(e) for e in node.prc] 
-            print(arr)
-            
-        elif isinstance(node, listCallNode):
-            # List item retrieval
-            list_code = self.generate(node.list_node)
-            pos_code = self.generate(node.pos)
-            return f"{list_code}[{pos_code}]"
-        
-        elif isinstance(node, RandNumNode):
-            # Native random integration
-            start = self.generate(node.start)
-            end = self.generate(node.end)
-            return f"random.randint({start}, {end})"
-        
-        elif isinstance(node, NoneNode):
-            return "None"
-        
-        elif isinstance(node, PassNode):
-            return "pass"
-        
+        elif isinstance(node, CompoundAssignNode):
+            return f"{node.name} {node.op} {self.generate(node.value)}"
+
+        elif isinstance(node, BinOpNode):
+            if node.op == "+":
+                # Smart Concatenation: if either side is a string, treat as string concat
+                left = self.generate(node.left)
+                right = self.generate(node.right)
+                return f"(str({left}) + str({right})) if isinstance({left}, str) or isinstance({right}, str) else ({left} + {right})"
+            return f"({self.generate(node.left)} {node.op} {self.generate(node.right)})"
+
+        elif isinstance(node, UnaryOpNode):
+            return f"({node.op}{self.generate(node.node)})"
+
+        elif isinstance(node, LogicOpNode):
+            # Map Origin logic operators to Python
+            op_map = {"and": "and", "or": "or", "&&": "and", "||": "or"}
+            py_op = op_map.get(node.op, node.op)
+            return f"({self.generate(node.left)} {py_op} {self.generate(node.right)})"
+
+        elif isinstance(node, IfNode):
+            code = f"if {self.generate(node.condition)}:\n"
+            code += self.indent_block(self.generate(node.then_body))
+            for elif_node in node.elif_nodes:
+                code += f"\nelif {self.generate(elif_node.condition)}:\n"
+                code += self.indent_block(self.generate(elif_node.then_body))
+            if node.else_body:
+                code += "\nelse:\n"
+                code += self.indent_block(self.generate(node.else_body))
+            return code
+
+        elif isinstance(node, WhileNode):
+            code = f"while {self.generate(node.condition)}:\n"
+            code += self.indent_block(self.generate(node.body))
+            return code
+
+        elif isinstance(node, ForNode):
+            code = f"for {node.var_name} in {self.generate(node.iterable)}:\n"
+            code += self.indent_block(self.generate(node.body))
+            return code
+
+        elif isinstance(node, TryNode):
+            code = "try:\n"
+            code += self.indent_block(self.generate(node.try_body))
+            for exc in node.except_body:
+                code += "\nexcept Exception:\n"
+                code += self.indent_block(self.generate(exc))
+            if node.else_body:
+                code += "\nelse:\n"
+                code += self.indent_block(self.generate(node.else_body))
+            return code
+
+        elif isinstance(node, FuncNode):
+            params = ", ".join(node.params)
+            code = f"def {node.name}({params}):\n"
+            code += self.indent_block(self.generate(node.body) or "pass")
+            return code
+
+        elif isinstance(node, ClassNode):
+            # Make fields optional by defaulting to None
+            params = ", ".join(f"{f}=None" for f in node.fields)
+            code = f"class {node.name}:\n"
+            # Body of __init__ must be indented further (8 spaces total)
+            init_body = "\n".join(f"        self.{f} = {f}" for f in node.fields) or "        pass"
+            code += f"    def __init__(self, {params}):\n{init_body}\n"
+            code += self.indent_block(self.generate(node.body))
+            return code
+
+        elif isinstance(node, CallNode):
+            args = ", ".join(self.generate(arg) for arg in node.args)
+            return f"{self.generate(node.callee)}({args})"
+
+        elif isinstance(node, AttributeNode):
+            return f"{self.generate(node.obj)}.{node.attr}"
+
+        elif isinstance(node, AttributeAssignNode):
+            return f"{self.generate(node.obj)}.{node.attr} = {self.generate(node.value)}"
+
         elif isinstance(node, PrintNode):
             return f"print({self.generate(node.expr)})"
 
         elif isinstance(node, NumberNode):
-            if node.type == "float":
-                return str(float(node.value))
-            else:
-                return str(node.value)
-            
-        elif isinstance(node, SqrtNode):
-            return f"math.sqrt(float({self.generate(node.value)}))"
-        
+            return str(node.value)
+
         elif isinstance(node, StringNode):
             return repr(node.value)
+
+        elif isinstance(node, BoolNode):
+            return str(node.value)
+
+        elif isinstance(node, NoneNode):
+            return "None"
 
         elif isinstance(node, VarNode):
             return node.name
 
         elif isinstance(node, ListNode):
-            return f"[{', '.join(self.generate(el) for el in node.elements)}]"
-        
+            return f"[{', '.join(self.generate(e) for e in node.elements)}]"
+
+        elif isinstance(node, TupleNode):
+            return f"({', '.join(self.generate(e) for e in node.elements)})"
+
         elif isinstance(node, DictNode):
-            return f"{{{', '.join(f'{self.generate(k)}: {self.generate(v)}' for k, v in node.elements.items())}}}"
-            
-        elif isinstance(node, BinOpNode):
-            # Binary operations, enclosed in parentheses for safety
-            val = self.generate(node.left) + " " + node.op + " " + self.generate(node.right)
-            return f"({val})"
+            items = ", ".join(f"{self.generate(k)}: {self.generate(v)}" for k, v in node.elements.items())
+            return f"{{{items}}}"
 
-        elif isinstance(node, UnaryOpNode):
-            return f"({node.op}{self.generate(node.node)})"
+        elif isinstance(node, IndexNode):
+            return f"{self.generate(node.collection)}[{self.generate(node.index)}]"
 
-        elif isinstance(node, InputNode):
-            if node.prompt:
-                return f"input({self.generate(node.prompt)})"
+        elif isinstance(node, IndexAssignNode):
+            return f"{self.generate(node.collection)}[{self.generate(node.index)}] = {self.generate(node.value)}"
+
+        elif isinstance(node, ParallelNode):
+            code = "import threading\n"
+            code += "_threads = []\n"
+            if node.threads > 0:
+                code += "def _parallel_block():\n"
+                code += self.indent_block(self.generate(node.body))
+                code += f"\nfor _ in range({node.threads}):\n"
+                code += "    t = threading.Thread(target=_parallel_block)\n"
+                code += "    t.start(); _threads.append(t)\n"
             else:
-                return "input()"
+                # Parallelize each statement in the block
+                for i, stmt in enumerate(node.body.statements):
+                    code += f"def _parallel_stmt_{i}():\n"
+                    code += self.indent_block(self.generate(stmt))
+                    code += f"\n_t{i} = threading.Thread(target=_parallel_stmt_{i})\n"
+                    code += f"_t{i}.start(); _threads.append(_t{i})\n"
+            code += "for t in _threads: t.join()\n"
+            return code
 
-        elif isinstance(node, IfNode):
-            # Handles conventional IF statements
-            code = f"if {self.generate(node.condition)}:\n"
-            then_body = self.indent_block(self.generate(node.then_body))
-            code += then_body
-            if node.else_body:
-                code += "\nelse:\n"
-                else_body = self.indent_block(self.generate(node.else_body))
-                code += else_body
-            return code
-        
-        elif isinstance(node, BoolNode):
-            return str(node.value).lower()
-        
-        elif isinstance(node, ElifNode):
-            # Handles ELIF cascade
-            code = f"elif {self.generate(node.condition)}:\n"
-            then_body = self.indent_block(self.generate(node.then_body))
-            code += then_body
-            if node.else_body:
-                code += "\nelse:\n"
-                else_body = self.indent_block(self.generate(node.else_body))
-                code += else_body
-            return code
-        
-        elif isinstance(node, WhileNode):
-            # Translates WHILE loops
-            code = f"while {self.generate(node.condition)}:\n"
-            body = self.indent_block(self.generate(node.body))
-            code += body
-            return code
-        
-        elif isinstance(node, TryNode):
-            # Error handling with try-except blocks
-            code = "try:\n"
-            try_body = self.indent_block(self.generate(node.try_body))
-            code += try_body
-            if node.except_body:
-                for eb in node.except_body:
-                    code += "\nexcept:\n"
-                    except_body = self.indent_block(self.generate(eb))
-                    code += except_body
-            if node.else_body:
-                code += "\nelse:\n"
-                else_body = self.indent_block(self.generate(node.else_body))
-                code += else_body
-            return code
-        
-        elif isinstance(node, ForNode):
-            # Standard Python for-each loops
-            code = f"for {node.var_name} in {self.generate(node.iterable)}:\n"
-            body = self.indent_block(self.generate(node.body))
-            code += body
-            return code
-        
+        elif isinstance(node, SetNode):
+            if node.name == "servo" and node.type_ == "angle":
+                return (
+                    f"from adafruit_servokit import ServoKit\n"
+                    f"_kit = ServoKit(channels=16) if '_kit' not in globals() else _kit\n"
+                    f"_kit.servo[{self.generate(node.num)}].angle = {self.generate(node.params)}"
+                )
+            elif node.name == "pin":
+                 return f"_execute_set_pin({self.generate(node.num)}, {self.generate(node.params)})"
+            return f"{node.name}.{node.type_} = {self.generate(node.params)}"
+
+        elif isinstance(node, ImportNode):
+            return f"import {node.name}"
+
+        elif isinstance(node, ImportAsNode):
+            return f"import {node.name} as {node.alias}"
+
+        elif isinstance(node, ImportFromNode):
+            return f"from {node.lib} import {node.name}"
+
+        elif isinstance(node, ReturnNode):
+            return f"return {self.generate(node.value)}"
+
+        elif isinstance(node, BreakNode):
+            return "break"
+
+        elif isinstance(node, ContinueNode):
+            return "continue"
+
+        elif isinstance(node, PassNode):
+            return "pass"
+
+        elif isinstance(node, HardwarePrimitiveNode):
+            args = ", ".join(self.generate(arg) for arg in node.args)
+            return f"_execute_{node.namespace}_{node.method}({args})"
+
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
 
-        elif isinstance(node, FuncNode):
-            params_str = ", ".join(node.params)
-            code = f"def {node.name}({params_str}):\n"
-            body = self.indent_block(self.generate(node.body))
-            code += body
-            return code
+        elif isinstance(node, LenNode):
+            return f"len({self.generate(node.value)})"
 
-        elif isinstance(node, AttributeNode):
-            return f"{self.generate(node.obj)}.{node.attr}"
+        elif isinstance(node, SqrtNode):
+            return f"math.sqrt({self.generate(node.value)})"
 
-        elif isinstance(node, CallNode):
-            args_str = ", ".join(self.generate(arg) for arg in node.arg)
-            return f"{self.generate(node.func_name)}({args_str})"
+        elif isinstance(node, RandNumNode):
+            return f"random.randint({self.generate(node.start)}, {self.generate(node.end)})"
 
         elif isinstance(node, CastNode):
             return f"{node.cast_type}({self.generate(node.value)})"
-        
-        elif isinstance(node, ImportNode):
-            # Registering import to standard tracking CSV
-            with open(csv_file_path_imports, mode='a', newline='') as file:
-                data = [node.name.value]
-                writer = csv.writer(file)
-                writer.writerow(data)
-            return f"import {node.name.value}"
 
-        elif isinstance(node, ImportFromNode):
-            with open(csv_file_path_imports, mode='a', newline='') as file:
-                data = [node.name.value, node.lib.value]
-                writer = csv.writer(file)
-                writer.writerow(data)
-            return f"from {node.name.value} import {node.lib.value}"
-
-        elif isinstance(node, ImportAsNode):
-            with open(csv_file_path_imports, mode='a', newline='') as file:
-                data = [node.name.value, node.nName.value]
-                writer = csv.writer(file)
-                writer.writerow(data)
-            return f"import {node.name.value} as {node.nName.value}"
-
-        elif isinstance(node, HardwarePrimitiveNode):
-            args_str = ", ".join(self.generate(arg) for arg in node.args)
-            return f"_execute_{node.namespace}_{node.method}({args_str})"
+        elif isinstance(node, InputNode):
+            prompt = self.generate(node.prompt) if node.prompt else ""
+            return f"input({prompt})"
 
         else:
-            raise RuntimeError(f"Unknown node type: {node}")
+            raise RuntimeError(f"Unknown node type: {type(node)}")
 
-    @staticmethod
-    def indent_block(code, indent=4):
-        """
-        Helper method to correctly indent blocks of generated Python code.
-        
-        Args:
-            code (str): The code block string to indent.
-            indent (int): Target number of space indentations. Defaults to 4.
-            
-        Returns:
-            str: Indented Python code.
-        """
+    def indent_block(self, code, indent=4):
+        if not code: return " " * indent + "pass"
         spaces = " " * indent
         return "\n".join(spaces + line if line.strip() else line for line in code.split("\n"))
+
+# --- Hardware Runtime Helpers ---
+def _execute_set_pin(pin, state):
+    try:
+        import RPi.GPIO as GPIO
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(pin, GPIO.OUT)
+        GPIO.output(pin, GPIO.HIGH if state else GPIO.LOW)
+    except ImportError:
+        print(f"[SIM] Pin {pin} set to {state}")
+
+def _execute_i2c_read(addr, reg, size=1):
+    try:
+        import smbus2
+        bus = smbus2.SMBus(1)
+        return bus.read_byte_data(addr, reg) if size == 1 else bus.read_i2c_block_data(addr, reg, size)
+    except ImportError:
+        return 0
+
+def _execute_i2c_write(addr, reg, data):
+    try:
+        import smbus2
+        bus = smbus2.SMBus(1)
+        if isinstance(data, int): bus.write_byte_data(addr, reg, data)
+        else: bus.write_i2c_block_data(addr, reg, data)
+    except ImportError:
+        pass

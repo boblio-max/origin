@@ -6,315 +6,162 @@ construct (literal, expression, statement, etc.) and is intentionally small
 and data-focused so the interpreter can pattern-match on types and fields.
 """
 
-import os 
-
 class ASTNode:
-    """Abstract base type for AST nodes.
-
-    Subclass instances are plain data containers consumed by the interpreter
-    and code-generation routines.
-    """
+    """Abstract base type for AST nodes."""
     def __init__(self, line=None):
         self.line = line
 
+class ProgramNode(ASTNode):
+    """Root program tree consisting of global execution statements."""
+    def __init__(self, statements):
+        super().__init__()
+        self.statements = statements
+    def __repr__(self):
+        return f"ProgramNode({self.statements})"
+
+class BlockNode(ASTNode):
+    """Structured block containing multiple statements."""
+    def __init__(self, statements):
+        super().__init__()
+        self.statements = statements
+    def __repr__(self):
+        return f"BlockNode({self.statements})"
+
 class ExecNode(ASTNode):
-    """Represents an execution of an embedded string evaluation/command."""
+    """Embedded string evaluation/command."""
     def __init__(self, code):
+        super().__init__()
         self.code = code
     def __repr__(self):
         return f"ExecNode({self.code!r})"
 
+class PyNode(ASTNode):
+    """Raw Python code block."""
+    def __init__(self, code):
+        super().__init__()
+        self.code = code
+    def __repr__(self):
+        return f"PyNode({self.code!r})"
+
 class NumberNode(ASTNode):
-    """Represents a numeric literal (integer or float)."""
+    """Numeric literal (integer or float)."""
     def __init__(self, value, _type):
+        super().__init__()
         self.value = value
         self.type = _type
     def __repr__(self):
         return f"NumberNode({self.value}, {self.type})"
 
 class StringNode(ASTNode):
-    """Represents a string literal."""
+    """String literal."""
     def __init__(self, value, _type="str"):
+        super().__init__()
         self.value = value
         self.type = _type
     def __repr__(self): 
         return f"StringNode({self.value!r}, {self.type})"
 
-class SqrtNode(ASTNode):
-    """Represents a square root operation."""
-    def __init__(self, value):
+class BoolNode(ASTNode):
+    """Boolean literal (True/False)."""
+    def __init__(self, value: bool):
+        super().__init__()
         self.value = value
+        self.type = "bool"
     def __repr__(self):
-        return f"SqrtNode({self.value})"
-
-class VarNode(ASTNode):
-    """Represents a variable reference."""
-    def __init__(self, name, _type=None):
-        self.name = name
-        self.type = _type
-    def __repr__(self):
-        return f"VarNode({self.name}, {self.type})"
-    
-class TryNode(ASTNode): 
-    """Represents a try-except error handling block."""
-    def __init__(self, try_body, except_body=None, else_body=None):
-        self.try_body = try_body
-        self.except_body = except_body or []
-        self.else_body = else_body
-
-    def __repr__(self):
-        return f"TryNode({self.try_body}, {self.except_body}, {self.else_body})"
-    
-class openNode(ASTNode): 
-    def __init__(self, name, path, _type):
-        self.name = name
-        self.path = path
-        self.type = _type
-    def __repr__(self):
-        return f"openNode({self.name}, {self.path}, {self.type})"
-class ErrorNode(ASTNode):
-    """Represents a generic evaluation error or syntax error."""
-    def __init__(self, message):
-        self.message = message
-    def __repr__(self):
-        return f"ErrorNode({self.message})"
-    
-class CastNode(ASTNode):
-    """Represents a type casting operation (e.g., to int, float, str)."""
-    def __init__(self, cast_type, value):
-        self.cast_type = cast_type
-        self.value = value
-        self.type = cast_type
-        
-class RangeNode(ASTNode):
-    """Represents a numeric generator range."""
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
-    def __repr__(self):
-        return f"RangeNode({self.start}, {self.end})"
-    
-class ListNode(ASTNode):
-    """Represents an inline declaration of a list."""
-    def __init__(self, elements):
-        self.elements = elements
-    def __repr__(self):
-        return f"ListNode({self.elements})"
-
-class TupleNode(ASTNode):
-    """Represents an inline declaration of a tuple."""
-    def __init__(self, elements):
-        self.elements = elements
-    def __repr__(self):
-        return f"TupleNode({self.elements})"
-    
-class DictNode(ASTNode):
-    """Represents an inline declaration of a dictionary."""
-    def __init__(self, elements):
-        self.elements = elements
-    def __repr__(self):
-        return f"DictNode({self.elements})"
+        return f"BoolNode({self.value})"
 
 class NoneNode(ASTNode):
-    """Represents the None literal."""
+    """None literal."""
     def __init__(self):
+        super().__init__()
         self.type = "none"
     def __repr__(self):
         return "NoneNode()"
 
 class PassNode(ASTNode):
-    """Represents the pass statement."""
+    """Pass statement."""
     def __init__(self):
-        pass
+        super().__init__()
     def __repr__(self):
         return "PassNode()"
 
-class IndexNode(ASTNode):
-    """Represents an index access operation on a collection (e.g., list[index])."""
-    def __init__(self, collection, index):
-        self.collection = collection
-        self.index = index
-
-class IndexAssignNode(ASTNode):
-    """Represents an assignment to a specific index of a collection."""
-    def __init__(self, collection, index, value):
-        self.collection = collection
-        self.index = index
-        self.value = value
-
-class AttributeAssignNode(ASTNode):
-    """Represents an assignment to an attribute of an object (e.g., obj.attr = value)."""
-    def __init__(self, obj, attr, value):
-        self.obj = obj
-        self.attr = attr
-        self.value = value
+class VarNode(ASTNode):
+    """Variable reference."""
+    def __init__(self, name, _type=None):
+        super().__init__()
+        self.name = name
+        self.type = _type
     def __repr__(self):
-        return f"AttributeAssignNode({self.obj}, {self.attr}, {self.value})"
-
-class BinOpNode(ASTNode):
-    """Represents a binary operation between two nodes (e.g., +, -, *, /)."""
-    def __init__(self, left, op, right):
-        self.left, self.op, self.right = left, op, right
-        self.type = None # Inferred at runtime or by a type checker
-    def __repr__(self):
-        return f"BinOpNode({self.left}, {self.op!r}, {self.right})"
-    
-class AttributeNode(ASTNode):
-    """Represents attribute or method access on an object."""
-    def __init__(self, obj, attr):
-        self.obj = obj
-        self.attr = attr
-    def __repr__(self):
-        return f"AttributeNode({self.obj}, {self.attr})"
-
-class HardwarePrimitiveNode(ASTNode):
-    """Represents a hardware protocol primitive call (i2c, spi, uart)."""
-    def __init__(self, namespace, method, args):
-        self.namespace = namespace
-        self.method = method
-        self.args = args
-    def __repr__(self):
-        return f"HardwarePrimitiveNode({self.namespace}, {self.method}, {self.args})"
-    
-class CallerNode(ASTNode):
-    """Represents a function call execution."""
-    def __init__(self, callee, args):
-        self.callee = callee
-        self.args = args
-    def __repr__(self):
-        return f"CallerNode({self.callee}, {self.args})"
-
-class listCallNode(ASTNode):
-    """Represents standard API calls mapped directly to list implementations."""
-    def __init__(self, list_node, pos):
-        self.list_node = list_node
-        self.pos = pos
-    def __repr__(self):
-        return f"ListCallNode({self.list_node}, {self.pos})"
+        return f"VarNode({self.name}, {self.type})"
 
 class AssignNode(ASTNode):
-    """Represents an assignment operation binding a value to a variable name."""
-    def __init__(self, name, value, _type):
+    """Assignment operation (let)."""
+    def __init__(self, name, value, _type=None):
+        super().__init__()
         self.name, self.value, self.type = name, value, _type
     def __repr__(self):
         return f"AssignNode({self.name}, {self.value}, {self.type})"
 
-class RandNumNode(ASTNode):
-    """Represents a random number generation query."""
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
-    def __repr__(self):
-        return f"RandNumNode({self.start}, {self.end})"
-
 class ConstAssignNode(ASTNode):
-    """Represents a constant variable declaration and assignment."""
+    """Constant declaration (const)."""
     def __init__(self, name, value):
+        super().__init__()
         self.name, self.value = name, value
     def __repr__(self):
         return f"ConstAssignNode({self.name}, {self.value})"
 
-class PrintNode(ASTNode):
-    """Represents a console print statement."""
-    def __init__(self, expr, _type):
-        self.expr = expr
-        self.type = _type
-    def __repr__(self):
-        return f"PrintNode({self.expr}, {self.type})"
-
-class ParallelNode(ASTNode):
-    """Represents parallel processing thread spawn context."""
-    def __init__(self, process_arr, threads=0):
-        self.prc, self.threads = process_arr, threads
-    def __repr__(self):
-        return f"ParallelNode({self.prc}, {self.threads})"
-
-class InputNode(ASTNode):
-    """Represents a user input request, optionally with a prompt."""
-    def __init__(self, prompt=None):
-        self.prompt = prompt
-    def __repr__(self):
-        return f"InputNode({self.prompt})"
-    
-class ClassNode(ASTNode):
-    """Represents an object-oriented class definition."""
-    def __init__(self, name, fields, methods):
+class CompoundAssignNode(ASTNode):
+    """Compound assignment (+=, -=, etc.)."""
+    def __init__(self, name, op, value):
+        super().__init__()
         self.name = name
-        self.fields = fields
-        self.methods = methods
+        self.op = op
+        self.value = value
     def __repr__(self):
-        return f"ClassNode({self.name}, {self.fields},{self.methods})"
-    
-class InstanceNode(ASTNode):
-    """Represents an instantiated object of a given class."""
-    def __init__(self, class_node):
-        self.class_node = class_node
-        self.fields = {field: None for field in class_node.fields} 
-    def __repr__(self):
-        return f"InstanceNode({self.class_node}, {self.fields})"
+        return f"CompoundAssignNode({self.name}, {self.op!r}, {self.value})"
 
-class LenNode(ASTNode):
-    """Represents an operation fetching the length of a collection."""
-    def __init__(self, value):
-        self.value = value 
+class BinOpNode(ASTNode):
+    """Binary operation (+, -, *, etc.)."""
+    def __init__(self, left, op, right):
+        super().__init__()
+        self.left, self.op, self.right = left, op, right
+        self.type = None 
     def __repr__(self):
-        return f"LenNode({self.value})"
+        return f"BinOpNode({self.left}, {self.op!r}, {self.right})"
 
-class BlockNode(ASTNode):
-    """Represents a structured block containing multiple statements (e.g., loop body)."""
-    def __init__(self, statements):
-        self.statements = statements
+class UnaryOpNode(ASTNode):
+    """Unary operation (negation, not)."""
+    def __init__(self, op, node):
+        super().__init__()
+        self.op, self.node = op, node
+        self.type = None
     def __repr__(self):
-        return f"BlockNode({self.statements})"
+        return f"UnaryOpNode({self.op!r}, {self.node})"
 
-class ImportNode(ASTNode):
-    """Represents an external library import statement."""
-    def __init__(self, name_token):
-        self.name = name_token  
+class LogicOpNode(ASTNode):
+    """Logical operation (AND, OR)."""
+    def __init__(self, left, op, right):
+        super().__init__()
+        self.left = left
+        self.op = op
+        self.right = right
+    def __repr__(self):
+        return f"LogicOpNode({self.left}, {self.op!r}, {self.right})"
 
+class SpecialOpNode(ASTNode):
+    """Special internal operators."""
+    def __init__(self, left, op, right):
+        super().__init__()
+        self.left = left
+        self.op = op
+        self.right = right
     def __repr__(self):
-        return f"ImportNode({self.name})"
+        return f"SpecialOpNode({self.left}, {self.op!r}, {self.right})"
 
-class ImportFromNode(ASTNode):
-    """Represents an import 'from' statement to import a specific module element."""
-    def __init__(self, name, library):
-        self.name = name
-        self.lib = library
-    
-    def __repr__(self):
-        return f"ImportFromNode({self.name}, {self.lib})"
-
-class SetNode(ASTNode):
-    """Represents a specialized assignment node for settings and state modifications."""
-    def __init__(self, name, num, type_, params):
-        self.name = name
-        self.params = params
-        self.type_ = type_
-        self.num = num
-    def __repr__(self):
-        return f"SetNode({self.name}, {self.num},{self.type_},{self.params})"
-
-class ImportAsNode(ASTNode):
-    """Represents an import statement bound to a specific local alias."""
-    def __init__(self, name, newName):
-        self.name = name
-        self.nName = newName
-    
-    def __repr__(self):
-        return f"ImportAsNode({self.name}, {self.nName})"
-    
-class FuncNode(ASTNode):
-    """Represents a defined function including parameters and execution block."""
-    def __init__(self, name, params, body):
-        self.name = name
-        self.params = params
-        self.body = body
-    def __repr__(self):
-        return f"FuncNode({self.name},{self.params}, {self.body})"
-    
 class IfNode(ASTNode):
-    """Represents standard control flow 'if' conditioning."""
+    """Control flow (if/elif/else)."""
     def __init__(self, condition, then_body, elif_nodes=None, else_body=None):
+        super().__init__()
         self.condition = condition
         self.then_body = then_body
         self.elif_nodes = elif_nodes or []
@@ -323,132 +170,290 @@ class IfNode(ASTNode):
         return f"IfNode({self.condition}, {self.then_body}, {self.elif_nodes}, {self.else_body})"
 
 class ElifNode(ASTNode):
-    """Represents a subsequent chained conditional within an if-else block."""
-    def __init__(self, condition, then_body, else_body=None):
+    """Subsequent conditional in an if-else block."""
+    def __init__(self, condition, then_body):
+        super().__init__()
         self.condition = condition
         self.then_body = then_body
-        self.else_body = else_body
     def __repr__(self):
-        return f"ElifNode({self.condition}, {self.then_body}, {self.else_body})"
+        return f"ElifNode({self.condition}, {self.then_body})"
 
 class WhileNode(ASTNode):
-    """Represents a continuously looping conditional state block."""
+    """While loop."""
     def __init__(self, condition, body):
+        super().__init__()
         self.condition = condition
         self.body = body
     def __repr__(self):
         return f"WhileNode({self.condition}, {self.body})"
 
 class ForNode(ASTNode):
-    """Represents a scoped iteration over an iterable expression structure."""
+    """For-each loop."""
     def __init__(self, var_name, iterable, body):
+        super().__init__()
         self.var_name = var_name
         self.iterable = iterable
         self.body = body
     def __repr__(self):
         return f"ForNode({self.var_name}, {self.iterable}, {self.body})"
 
-class UnaryOpNode(ASTNode):
-    """Represents an operation affecting a single targeted syntactic node (e.g., value negation)."""
-    def __init__(self, op, node):
-        self.op, self.node = op, node
-        self.type = None
+class TryNode(ASTNode): 
+    """Try-except block."""
+    def __init__(self, try_body, except_body=None, else_body=None):
+        super().__init__()
+        self.try_body = try_body
+        self.except_body = except_body or []
+        self.else_body = else_body
     def __repr__(self):
-        return f"UnaryOpNode({self.op!r}, {self.node})"
-    
-class ProgramNode(ASTNode):
-    """Represents the root program tree consisting of global execution statements."""
-    def __init__(self, statements):
-        self.statements = statements
-    def __repr__(self):
-        return f"ProgramNode({self.statements})"
+        return f"TryNode({self.try_body}, {self.except_body}, {self.else_body})"
 
-class BoolNode(ASTNode):
-    """Represents a literal True or False constant boolean structure."""
-    def __init__(self, value: bool):
-        self.value = value
-        self.type = "bool"
-    def __repr__(self):
-        return f"BoolNode({self.value})"
-
-class checkNode(ASTNode):
-    """Represents a validation or assertion check within the program."""
-    def __init__(self, condition, _type):
-        self.condition = condition
-        self.type = _type
-    def __repr__(self):
-        return f"CheckNode({self.condition}, {self.type})"
-
-
-class CompoundAssignNode(ASTNode):
-    """Represents variables resolving an operation during its assignment phase (e.g., +=)."""
-    def __init__(self, name, op, value):
+class FuncNode(ASTNode):
+    """Function definition."""
+    def __init__(self, name, params, body):
+        super().__init__()
         self.name = name
-        self.op = op
-        self.value = value
+        self.params = params
+        self.body = body
     def __repr__(self):
-        return f"CompoundAssignNode({self.name}, {self.op!r}, {self.value})"
+        return f"FuncNode({self.name}, {self.params}, {self.body})"
 
-class LogicOpNode(ASTNode):
-    """Represents structural evaluation mappings spanning AND/OR logic."""
-    def __init__(self, left, op, right):
-        self.left = left
-        self.op = op
-        self.right = right
+class ClassNode(ASTNode):
+    """Class definition."""
+    def __init__(self, name, fields, body):
+        super().__init__()
+        self.name = name
+        self.fields = fields
+        self.body = body
     def __repr__(self):
-        return f"LogicOpNode({self.left}, {self.op!r}, {self.right})"
-
-class PyNode(ASTNode):
-    """Represents a raw Python code block to be executed directly."""
-    def __init__(self, code):
-        self.code = code
-    def __repr__(self):
-        return f"PyNode({self.code!r})"
-    
-class NotNode(ASTNode):
-    """Represents a logical negation of evaluating boolean logic."""
-    def __init__(self, expr):
-        self.expr = expr
-    def __repr__(self):
-        return f"NotNode({self.expr})"
+        return f"ClassNode({self.name}, {self.fields}, {self.body})"
 
 class CallNode(ASTNode):
-    """Represents invocation logic addressing customized defined functionality."""
-    def __init__(self, func_name, arg):
-        self.func_name = func_name
-        self.arg = arg
+    """Function or method call."""
+    def __init__(self, callee, args):
+        super().__init__()
+        self.callee = callee
+        self.args = args
     def __repr__(self):
-        return f"CallNode({self.func_name}, {self.arg})"
+        return f"CallNode({self.callee}, {self.args})"
 
-class SpecialOpNode(ASTNode):
-    """Represents internal operator functionalities isolated securely."""
-    def __init__(self, left, op, right):
-        self.left = left
-        self.op = op
-        self.right = right
+class AttributeNode(ASTNode):
+    """Attribute or method access (obj.attr)."""
+    def __init__(self, obj, attr):
+        super().__init__()
+        self.obj = obj
+        self.attr = attr
     def __repr__(self):
-        return f"SpecialOpNode({self.left}, {self.op!r}, {self.right})"
+        return f"AttributeNode({self.obj}, {self.attr})"
+
+class AttributeAssignNode(ASTNode):
+    """Assignment to an attribute (obj.attr = value)."""
+    def __init__(self, obj, attr, value):
+        super().__init__()
+        self.obj = obj
+        self.attr = attr
+        self.value = value
+    def __repr__(self):
+        return f"AttributeAssignNode({self.obj}, {self.attr}, {self.value})"
+
+class ListNode(ASTNode):
+    """List literal."""
+    def __init__(self, elements):
+        super().__init__()
+        self.elements = elements
+    def __repr__(self):
+        return f"ListNode({self.elements})"
+
+class TupleNode(ASTNode):
+    """Tuple literal."""
+    def __init__(self, elements):
+        super().__init__()
+        self.elements = elements
+    def __repr__(self):
+        return f"TupleNode({self.elements})"
+
+class DictNode(ASTNode):
+    """Dictionary literal."""
+    def __init__(self, elements):
+        super().__init__()
+        self.elements = elements
+    def __repr__(self):
+        return f"DictNode({self.elements})"
+
+class IndexNode(ASTNode):
+    """Index access (list[index])."""
+    def __init__(self, collection, index):
+        super().__init__()
+        self.collection = collection
+        self.index = index
+    def __repr__(self):
+        return f"IndexNode({self.collection}, {self.index})"
+
+class IndexAssignNode(ASTNode):
+    """Assignment to an index (list[index] = value)."""
+    def __init__(self, collection, index, value):
+        super().__init__()
+        self.collection = collection
+        self.index = index
+        self.value = value
+    def __repr__(self):
+        return f"IndexAssignNode({self.collection}, {self.index}, {self.value})"
+
+class ListCallNode(ASTNode):
+    """Special API calls for lists."""
+    def __init__(self, list_node, pos):
+        super().__init__()
+        self.list_node = list_node
+        self.pos = pos
+    def __repr__(self):
+        return f"ListCallNode({self.list_node}, {self.pos})"
+
+class OpenNode(ASTNode): 
+    """File open operation."""
+    def __init__(self, name, path, _type):
+        super().__init__()
+        self.name = name
+        self.path = path
+        self.type = _type
+    def __repr__(self):
+        return f"OpenNode({self.name}, {self.path}, {self.type})"
+
+class SqrtNode(ASTNode):
+    """Square root operation."""
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+    def __repr__(self):
+        return f"SqrtNode({self.value})"
+
+class RandNumNode(ASTNode):
+    """Random number generation."""
+    def __init__(self, start, end):
+        super().__init__()
+        self.start = start
+        self.end = end
+    def __repr__(self):
+        return f"RandNumNode({self.start}, {self.end})"
+
+class LenNode(ASTNode):
+    """Collection length."""
+    def __init__(self, value):
+        super().__init__()
+        self.value = value 
+    def __repr__(self):
+        return f"LenNode({self.value})"
+
+class PrintNode(ASTNode):
+    """Print statement."""
+    def __init__(self, expr):
+        super().__init__()
+        self.expr = expr
+    def __repr__(self):
+        return f"PrintNode({self.expr})"
+
+class InputNode(ASTNode):
+    """User input request."""
+    def __init__(self, prompt=None):
+        super().__init__()
+        self.prompt = prompt
+    def __repr__(self):
+        return f"InputNode({self.prompt})"
+
+class CastNode(ASTNode):
+    """Type casting."""
+    def __init__(self, cast_type, value):
+        super().__init__()
+        self.cast_type = cast_type
+        self.value = value
+        self.type = cast_type
+    def __repr__(self):
+        return f"CastNode({self.cast_type}, {self.value})"
+
+class RangeNode(ASTNode):
+    """Numeric range generator."""
+    def __init__(self, start, end):
+        super().__init__()
+        self.start = start
+        self.end = end
+    def __repr__(self):
+        return f"RangeNode({self.start}, {self.end})"
+
+class ParallelNode(ASTNode):
+    """Parallel processing context."""
+    def __init__(self, body, threads=0):
+        super().__init__()
+        self.body, self.threads = body, threads
+    def __repr__(self):
+        return f"ParallelNode({self.body}, {self.threads})"
+
+class HardwarePrimitiveNode(ASTNode):
+    """Hardware protocol primitive call (i2c, spi, uart)."""
+    def __init__(self, namespace, method, args):
+        super().__init__()
+        self.namespace = namespace
+        self.method = method
+        self.args = args
+    def __repr__(self):
+        return f"HardwarePrimitiveNode({self.namespace}, {self.method}, {self.args})"
+
+class SetNode(ASTNode):
+    """Specialized state modification (servo, pin)."""
+    def __init__(self, name, num, type_, params):
+        super().__init__()
+        self.name = name
+        self.num = num
+        self.type_ = type_
+        self.params = params
+    def __repr__(self):
+        return f"SetNode({self.name}, {self.num}, {self.type_}, {self.params})"
+
+class ImportNode(ASTNode):
+    """Library import."""
+    def __init__(self, name):
+        super().__init__()
+        self.name = name  
+    def __repr__(self):
+        return f"ImportNode({self.name})"
+
+class ImportFromNode(ASTNode):
+    """'from ... import' statement."""
+    def __init__(self, name, library):
+        super().__init__()
+        self.name = name
+        self.lib = library
+    def __repr__(self):
+        return f"ImportFromNode({self.name}, {self.lib})"
+
+class ImportAsNode(ASTNode):
+    """'import ... as' statement."""
+    def __init__(self, name, alias):
+        super().__init__()
+        self.name = name
+        self.alias = alias
+    def __repr__(self):
+        return f"ImportAsNode({self.name}, {self.alias})"
 
 class BreakNode(ASTNode):
-    """Represents the operational flow instruction terminating a loop."""
+    """Loop break."""
     def __repr__(self):
         return "BreakNode()"
 
 class ContinueNode(ASTNode):
-    """Represents the operational flow instruction advancing to the next loop scope."""
+    """Loop continue."""
     def __repr__(self):
         return "ContinueNode()"
 
 class ReturnNode(ASTNode):
-    """Represents the operational mapping yielding context flow entirely dynamically."""
+    """Function return."""
     def __init__(self, value):
+        super().__init__()
         self.value = value
     def __repr__(self):
         return f"ReturnNode({self.value})"
 
 class YieldNode(ASTNode):
-    """Represents generative returning functionalities mapped temporally."""
+    """Generator yield."""
     def __init__(self, value):
+        super().__init__()
         self.value = value
     def __repr__(self):
         return f"YieldNode({self.value})"
