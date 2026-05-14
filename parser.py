@@ -62,7 +62,7 @@ class Parser:
 
         if tok.type == "STRING":
             self.eat("STRING")
-            return StringNode(tok.value[1:-1], "str")
+            return StringNode(tok.value, "str")
         
         if tok.type == "KEYWORD":
             if tok.value == "range":
@@ -81,22 +81,6 @@ class Parser:
                     prompt = StringNode(self.eat("STRING").value[1:-1])
                 return InputNode(prompt)
             
-            if tok.value == "sqrt":
-                self.eat("KEYWORD")
-                self.eat("SYMBOL")  # (
-                value = self.special_expr()
-                self.eat("SYMBOL")  # )
-                return SqrtNode(value)
-                
-            if tok.value == "rand_num":
-                self.eat("KEYWORD")
-                self.eat("SYMBOL")
-                start = self.special_expr()
-                self.eat("SYMBOL")
-                end = self.special_expr()
-                self.eat("SYMBOL")
-                return RandNumNode(start, end)
-            
             if tok.value == "true":
                 self.eat("KEYWORD")
                 return BoolNode(True)
@@ -104,13 +88,6 @@ class Parser:
             if tok.value == "false":
                 self.eat("KEYWORD")
                 return BoolNode(False)
-                
-            if tok.value == "len":
-                self.eat("KEYWORD") 
-                self.eat("SYMBOL") 
-                expr_node = self.special_expr() 
-                self.eat("SYMBOL")  
-                return LenNode(expr_node)
             
             if tok.value == "call":
                 self.eat("KEYWORD")
@@ -126,7 +103,7 @@ class Parser:
                 self.eat("SYMBOL")  # (
                 arg = self.special_expr()
                 self.eat("SYMBOL")  # )
-                return CastNode(func_name, arg)
+                return CallNode(VarNode(func_name), [arg])
 
         if tok.type == "IDENT":
             name = self.eat("IDENT").value
@@ -169,12 +146,17 @@ class Parser:
                     args = []
                     self.skip_newlines()
                     if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
+                        self.skip_newlines()
                         args.append(self.special_expr())
+                        self.skip_newlines()
                         while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
                             self.eat("SYMBOL")
+                            self.skip_newlines()
                             args.append(self.special_expr())
+                            self.skip_newlines()
                     self.eat("SYMBOL")  # )
                     node = CallNode(node, args)
+                    self.skip_newlines()
 
                 # Attribute access
                 elif self.current_token().type == "SYMBOL" and self.current_token().value == ".":
@@ -191,12 +173,15 @@ class Parser:
             self.eat("SYMBOL")
             first = self.special_expr()
             if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                self.skip_newlines()
                 elements = [first]
                 while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
                     self.eat("SYMBOL")
+                    self.skip_newlines()
                     if self.current_token().type == "SYMBOL" and self.current_token().value == ")":
                         break
                     elements.append(self.special_expr())
+                    self.skip_newlines()
                 self.eat("SYMBOL")  # )
                 return TupleNode(elements)
             else:
@@ -253,16 +238,23 @@ class Parser:
         self.eat("BRACKET")  # }
         return DictNode(elements)
 
+    def power(self):
+        node = self.factor()
+        if self.current_token().type == "ARITH" and self.current_token().value == "**":
+            op = self.eat("ARITH").value
+            node = BinOpNode(node, op, self.power()) # Right associative
+        return node
+
     def unary(self):
         tok = self.current_token()
         if tok.type == "UNARY" or (tok.type == "LOGIC" and tok.value in ("not", "!")) or (tok.type == "ARITH" and tok.value == "-"):
             op = self.eat(tok.type).value
             return UnaryOpNode(op, self.unary())
-        return self.factor()
+        return self.power()
 
     def term(self):
         node = self.unary()
-        while self.current_token().type == "ARITH" and self.current_token().value in ("*", "/", "//", "%", "**"):
+        while self.current_token().type == "ARITH" and self.current_token().value in ("*", "/", "//", "%"):
             op = self.eat("ARITH").value
             node = BinOpNode(node, op, self.unary())
         return node
@@ -371,6 +363,7 @@ class Parser:
 
             if tok.value == "print":
                 self.eat("KEYWORD")
+                self.skip_newlines()
                 return PrintNode(self.special_expr())
 
             if tok.value == "if":
@@ -378,12 +371,14 @@ class Parser:
 
             if tok.value == "while":
                 self.eat("KEYWORD")
+                self.skip_newlines()
                 condition = self.special_expr()
                 body = self.block()
                 return WhileNode(condition, body)
 
             if tok.value == "for":
                 self.eat("KEYWORD")
+                self.skip_newlines()
                 var = self.eat("IDENT").value
                 self.eat("KEYWORD") # in
                 iterable = self.special_expr()
@@ -396,10 +391,14 @@ class Parser:
                 self.eat("SYMBOL") # (
                 params = []
                 if self.current_token().value != ")":
+                    self.skip_newlines()
                     params.append(self.eat("IDENT").value)
+                    self.skip_newlines()
                     while self.current_token().value == ",":
                         self.eat("SYMBOL")
+                        self.skip_newlines()
                         params.append(self.eat("IDENT").value)
+                        self.skip_newlines()
                 self.eat("SYMBOL") # )
                 body = self.block()
                 return FuncNode(name, params, body)
@@ -410,10 +409,14 @@ class Parser:
                 self.eat("SYMBOL") # (
                 fields = []
                 if self.current_token().value != ")":
+                    self.skip_newlines()
                     fields.append(self.eat("IDENT").value)
+                    self.skip_newlines()
                     while self.current_token().value == ",":
                         self.eat("SYMBOL")
+                        self.skip_newlines()
                         fields.append(self.eat("IDENT").value)
+                        self.skip_newlines()
                 self.eat("SYMBOL") # )
                 body = self.block()
                 return ClassNode(name, fields, body)
@@ -473,6 +476,11 @@ class Parser:
                 self.eat("KEYWORD")
                 return ContinueNode()
 
+            if tok.value == "global":
+                self.eat("KEYWORD")
+                name = self.eat("IDENT").value
+                return GlobalNode(name)
+
             if tok.value == "pass":
                 self.eat("KEYWORD")
                 return PassNode()
@@ -510,6 +518,7 @@ class Parser:
 
     def if_stmt(self):
         self.eat("KEYWORD") # if
+        self.skip_newlines()
         condition = self.special_expr()
         then_body = self.block()
         elif_nodes = []
@@ -517,6 +526,7 @@ class Parser:
             self.skip_newlines()
             if self.current_token().value == "elif":
                 self.eat("KEYWORD")
+                self.skip_newlines()
                 cond = self.special_expr()
                 elif_nodes.append(ElifNode(cond, self.block()))
             else:

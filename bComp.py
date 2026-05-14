@@ -52,6 +52,18 @@ class Compiler:
         self.loop_starts = [] # Stack of JMP targets for continue
         self.loop_ends = []   # Stack of placeholder indices for break
         self.variable_types = {}
+        self.functions = {}
+        self.unresolved_calls = []
+
+    def emit_jmp(self, opcode, target=0):
+        self.emit(opcode)
+        idx = len(self.bytecode)
+        self.bytecode.extend([(target >> 8) & 0xFF, target & 0xFF])
+        return idx
+
+    def patch_jmp(self, idx, target):
+        self.bytecode[idx] = (target >> 8) & 0xFF
+        self.bytecode[idx+1] = target & 0xFF
 
     def get_type(self, node):
         """Infer the type of an AST node."""
@@ -167,42 +179,33 @@ class Compiler:
             self.emit(OpCode.INPUT)
 
         elif isinstance(node, IfNode):
+            end_jmp_indices = []
+
             self.compile(node.condition)
-            self.emit(OpCode.JMP_IF_FALSE)
-            false_jmp_idx = len(self.bytecode)
-            self.emit(0) # Placeholder
+            false_jmp_idx = self.emit_jmp(OpCode.JMP_IF_FALSE)
 
             self.compile(node.then_body)
-            self.emit(OpCode.JMP)
-            end_jmp_idx = len(self.bytecode)
-            self.emit(0) # Placeholder
+            end_jmp_indices.append(self.emit_jmp(OpCode.JMP))
 
             # Patch false jump (to elif or else or end)
-            self.bytecode[false_jmp_idx] = len(self.bytecode)
+            self.patch_jmp(false_jmp_idx, len(self.bytecode))
 
             for elif_node in node.elif_nodes:
                  self.compile(elif_node.condition)
-                 self.emit(OpCode.JMP_IF_FALSE)
-                 next_elif_idx = len(self.bytecode)
-                 self.emit(0)
+                 next_elif_idx = self.emit_jmp(OpCode.JMP_IF_FALSE)
                  
                  self.compile(elif_node.then_body)
-                 self.emit(OpCode.JMP)
-                 self.bytecode[end_jmp_idx] = len(self.bytecode) # Update jump targets
-                 end_jmp_idx = len(self.bytecode) - 1
+                 end_jmp_indices.append(self.emit_jmp(OpCode.JMP))
                  
-                 self.bytecode[next_elif_idx] = len(self.bytecode)
+                 self.patch_jmp(next_elif_idx, len(self.bytecode))
 
             if node.else_body:
                 self.compile(node.else_body)
             
-            # Patch end jump
-            # We need to loop back and patch all end jumps to the final end
-            # For simplicity in this implementation, we just patch the last one.
-            # A more robust compiler would track a list of 'end' jumps.
-            self.bytecode[end_jmp_idx] = len(self.bytecode)
+            for idx in end_jmp_indices:
+                self.patch_jmp(idx, len(self.bytecode))
 
-        elif isinstance(node, listCallNode):
+        elif isinstance(node, ListCallNode):
             self.compile(node.list_node)
             self.compile(node.pos)
             self.emit(OpCode.INDEX_LOAD)
@@ -210,37 +213,34 @@ class Compiler:
         elif isinstance(node, PassNode):
             pass
 
+        elif isinstance(node, WhileNode):
             start_pc = len(self.bytecode)
             self.loop_starts.append(start_pc)
             breaks = []
             self.loop_ends.append(breaks)
 
             self.compile(node.condition)
-            self.emit(OpCode.JMP_IF_FALSE)
-            exit_jmp_idx = len(self.bytecode)
-            self.emit(0)
+            exit_jmp_idx = self.emit_jmp(OpCode.JMP_IF_FALSE)
 
             self.compile(node.body)
-            self.emit(OpCode.JMP, start_pc)
+            self.emit_jmp(OpCode.JMP, start_pc)
 
             # Patch exit jump
-            self.bytecode[exit_jmp_idx] = len(self.bytecode)
+            self.patch_jmp(exit_jmp_idx, len(self.bytecode))
             # Patch breaks
             for b_idx in breaks:
-                self.bytecode[b_idx] = len(self.bytecode)
+                self.patch_jmp(b_idx, len(self.bytecode))
             
             self.loop_starts.pop()
             self.loop_ends.pop()
 
         elif isinstance(node, BreakNode):
             if not self.loop_ends: raise RuntimeError("Break outside loop")
-            self.emit(OpCode.JMP)
-            self.loop_ends[-1].append(len(self.bytecode))
-            self.emit(0)
+            self.loop_ends[-1].append(self.emit_jmp(OpCode.JMP))
 
         elif isinstance(node, ContinueNode):
             if not self.loop_starts: raise RuntimeError("Continue outside loop")
-            self.emit(OpCode.JMP, self.loop_starts[-1])
+            self.emit_jmp(OpCode.JMP, self.loop_starts[-1])
 
         elif isinstance(node, ListNode):
             for el in node.elements:
@@ -280,8 +280,51 @@ class Compiler:
         elif isinstance(node, PassNode):
             pass
 
+        elif isinstance(node, FuncNode):
+            skip_jmp_idx = self.emit_jmp(OpCode.JMP)
+
+            self.functions[node.name] = len(self.bytecode)
+            for param in reversed(node.params):
+                idx = self.add_constant(param)
+                self.emit(OpCode.STORE_VAR, idx)
+            
+            self.compile(node.body)
+            idx = self.add_constant(None)
+            self.emit(OpCode.PUSH_CONST, idx)
+            self.emit(OpCode.RETURN)
+
+            self.patch_jmp(skip_jmp_idx, len(self.bytecode))
+
+        elif isinstance(node, CallNode):
+            for arg in node.args:
+                self.compile(arg)
+            
+            if isinstance(node.callee, VarNode):
+                func_name = node.callee.name
+                if func_name in self.functions:
+                    idx = self.add_constant(self.functions[func_name])
+                    self.emit(OpCode.PUSH_CONST, idx)
+                else:
+                    idx = self.add_constant(0)
+                    self.emit(OpCode.PUSH_CONST, idx)
+                    self.unresolved_calls.append((func_name, idx))
+            else:
+                self.compile(node.callee)
+            
+            self.emit(OpCode.CALL, len(node.args))
+
+        elif isinstance(node, ReturnNode):
+            self.compile(node.value)
+            self.emit(OpCode.RETURN)
+
         if isinstance(node, ProgramNode):
             self.emit(OpCode.HALT)
+            
+            for func_name, const_idx in self.unresolved_calls:
+                if func_name in self.functions:
+                    self.constants[const_idx] = self.functions[func_name]
+                else:
+                    raise NameError(f"Function '{func_name}' is not defined")
 
 class VM:
     def __init__(self, bytecode, constants):
@@ -343,12 +386,13 @@ class VM:
                 self.stack.append(a == b)
 
             elif opcode == OpCode.JMP:
-                target = self.bytecode[self.pc]
+                target = (self.bytecode[self.pc] << 8) | self.bytecode[self.pc+1]
+                self.pc += 2
                 self.pc = target
 
             elif opcode == OpCode.JMP_IF_FALSE:
-                target = self.bytecode[self.pc]
-                self.pc += 1
+                target = (self.bytecode[self.pc] << 8) | self.bytecode[self.pc+1]
+                self.pc += 2
                 val = self.stack.pop()
                 if not val:
                     self.pc = target

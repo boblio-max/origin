@@ -17,20 +17,28 @@
 *   **Hardware-First**: Native, intuitive commands for **Raspberry Pi GPIO** and **ServoKit (PCA9685)**.
 *   **Strict Typing**: Mandatory type annotations (`let x: int = 10`) for predictable state and AI-native safety.
 *   **Safe Hardware I/O**: Automatic angle clamping (0–180°) for servos to prevent physical damage.
-*   **Full Interoperability**: Embed raw Python blocks directly within Origin scripts.
-*   **Modern Logic**: Support for Object-Oriented Programming (classes), `try/except/else`, `parallel` thread blocks, and a robust module inclusion system.
+*   **Formal Module System**: Professional namespacing and module support (`import math as m`, `from lib import x`).
+*   **Binary Builder**: Compile your Origin scripts into standalone, zero-dependency `.exe` files.
+*   **Modern Logic**: Support for Object-Oriented Programming (classes), `try/except/else`, `parallel` thread blocks, and robust scope management.
 
 ---
 
 ## Installation
 
+### 🚀 Standalone (Recommended)
+You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
+
+1. **Download**: [Origin v1.7.5 Stable](https://docs-origin.onrender.com/download.html)
+2. **Install**: Run `install_origin.ps1` with PowerShell.
+3. **Usage**: Open a new terminal and type `origin`.
+
+### 🛠️ Developer / Source
 1. **Clone the repository**:
    ```powershell
    git clone https://github.com/boblio-max/origin.git
    ```
 
 2. **Install Dependencies**:
-   Origin requires Python 3.x and a few hardware libraries if you are running on a Raspberry Pi:
    ```powershell
    pip install -r requirements.txt
    ```
@@ -92,13 +100,14 @@ py {
 ```
 
 ### 5. Module System
-Origin uses a "header-style" inclusion system.
+Origin supports a formal module system for clean namespacing.
 
 ```origin
-import robotics_utils        # Prepends robotics_utils.or to current file
-from math import sqrt        # Import directly from Python libraries
+import math_utils as mu        # Import with alias
+from robotics import drive     # Selective import
 
-let val: float = sqrt(144)
+print mu.square(10)
+drive(1.0)
 ```
 
 ### 6. Object-Oriented Programming
@@ -114,17 +123,17 @@ class Sensor (pin type) {
 
 ---
 
-## Usage
+Origin scripts use the `.or` extension.
 
-Origin scripts use the `.or` (or `.txt`) extension. To translate and execute a script:
+### Running a script:
+```powershell
+origin main.or
+```
 
-1. Place your code in a file (e.g., `main.or`).
-2. Run the runner script:
-   ```powershell
-   python runner.py main.or
-   ```
-
-The `runner.py` will use the `interpreter.py` to translate your Origin code into Python and execute it immediately.
+### Building a standalone binary:
+```powershell
+origin build main.or
+```
 
 ---
 

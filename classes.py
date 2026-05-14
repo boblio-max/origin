@@ -317,31 +317,6 @@ class OpenNode(ASTNode):
     def __repr__(self):
         return f"OpenNode({self.name}, {self.path}, {self.type})"
 
-class SqrtNode(ASTNode):
-    """Square root operation."""
-    def __init__(self, value):
-        super().__init__()
-        self.value = value
-    def __repr__(self):
-        return f"SqrtNode({self.value})"
-
-class RandNumNode(ASTNode):
-    """Random number generation."""
-    def __init__(self, start, end):
-        super().__init__()
-        self.start = start
-        self.end = end
-    def __repr__(self):
-        return f"RandNumNode({self.start}, {self.end})"
-
-class LenNode(ASTNode):
-    """Collection length."""
-    def __init__(self, value):
-        super().__init__()
-        self.value = value 
-    def __repr__(self):
-        return f"LenNode({self.value})"
-
 class PrintNode(ASTNode):
     """Print statement."""
     def __init__(self, expr):
@@ -357,16 +332,6 @@ class InputNode(ASTNode):
         self.prompt = prompt
     def __repr__(self):
         return f"InputNode({self.prompt})"
-
-class CastNode(ASTNode):
-    """Type casting."""
-    def __init__(self, cast_type, value):
-        super().__init__()
-        self.cast_type = cast_type
-        self.value = value
-        self.type = cast_type
-    def __repr__(self):
-        return f"CastNode({self.cast_type}, {self.value})"
 
 class RangeNode(ASTNode):
     """Numeric range generator."""
@@ -431,6 +396,14 @@ class ImportAsNode(ASTNode):
         self.alias = alias
     def __repr__(self):
         return f"ImportAsNode({self.name}, {self.alias})"
+
+class GlobalNode(ASTNode):
+    """Explicit global variable declaration."""
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+    def __repr__(self):
+        return f"GlobalNode({self.name})"
 
 class BreakNode(ASTNode):
     """Loop break."""
