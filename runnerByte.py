@@ -13,7 +13,7 @@ import time
 code_lines = []
 
 
-code_name = "code.or"
+code_name = "test_byte.or"
 
 
 # Get the path to the TESTS(Or) directory relative to this script

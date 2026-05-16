@@ -6,7 +6,6 @@ This module implements a small interpreter that traverses the AST produced by
 ``parser.Parser`` and emits executable Python source strings.
 """
 
-import re
 import random
 import csv
 import math
@@ -15,72 +14,18 @@ import os
 import subprocess
 from multiprocessing import Process
 from classes import *
-
+from lexer import lex
+from parser import Parser
 class Interpreter:
     """Generate Python source from the AST."""
 
     def __init__(self):
         self.variable_types = {}
-        # Internal tracking
-        self.current_file = ""
-        self.scopes = [{"variables": {}, "constants": {}, "globals": set()}]
-        self.CONST_VARS = {} # Still needed for some global constants if any
+        # Internal tracking (optional, could be moved to a flag)
+        self.CONST_VARS = {}
         self.imports = []
         self.classes = {}
-        self.builtins = {
-            "sqrt": "math.sqrt",
-            "len": "len",
-            "rand_num": "random.randint",
-            "int": "int",
-            "float": "float",
-            "str": "str",
-            "bool": "bool"
-        }
-        self.transpiled_modules = set()
-
-    def _transpile_dependency(self, module_name):
-        """Find and transpile an Origin (.or) dependency if it exists."""
-        if module_name in self.transpiled_modules:
-            return True
-            
-        or_file = f"{module_name}.or"
-        if os.path.exists(or_file):
-            import lexer
-            import parser
-            
-            with open(or_file, "r", encoding="utf-8") as f:
-                lines = [line.rstrip("\n") for line in f]
-            
-            tokens = lexer.lex(lines)
-            p = parser.Parser(tokens)
-            ast = p.program()
-            
-            # Use a fresh interpreter to avoid scope pollution, but share transpiled list
-            sub_interp = Interpreter()
-            sub_interp.transpiled_modules = self.transpiled_modules
-            py_code = sub_interp.generate(ast)
-            
-            # Create cache dir if needed
-            cache_dir = "__origin_cache__"
-            if not os.path.exists(cache_dir):
-                os.makedirs(cache_dir)
-                
-            with open(os.path.join(cache_dir, f"{module_name}.py"), "w", encoding="utf-8") as f:
-                f.write(py_code)
-                
-            self.transpiled_modules.add(module_name)
-            return True
-        return False
-    
-    def push_scope(self):
-        """Enter a new local scope."""
-        self.scopes.append({"variables": {}, "constants": {}, "globals": set()})
-
-    def pop_scope(self):
-        """Exit the current local scope."""
-        if len(self.scopes) > 1:
-            self.scopes.pop()
-
+        self.original_imports = {"calc": "/lib/calc.or"}
     def get_type(self, node):
         """Infer the type of an AST node."""
         if hasattr(node, 'type') and node.type is not None:
@@ -137,24 +82,18 @@ class Interpreter:
             val_type = self.get_type(node.value)
             if node.type and val_type and node.type != val_type:
                 raise TypeError(f"Type Mismatch: {node.name} is {node.type} but got {val_type}")
-            # Check constants in all visible scopes
-            for scope in reversed(self.scopes):
-                if node.name in scope["constants"]:
-                    raise ValueError(f"Cannot reassign constant '{node.name}' at line {node.line}")
             
-            # Record variable in current scope
-            self.scopes[-1]["variables"][node.name] = node.type
-            val = self.generate(node.value)
-            return f"{node.name} = {val}"
+            if node.type:
+                self.variable_types[node.name] = node.type
+                
+            return f"{node.name} = {self.generate(node.value)}"
 
         elif isinstance(node, ConstAssignNode):
-            self.scopes[-1]["constants"][node.name] = True
-            val = self.generate(node.value)
-            return f"{node.name} = {val}"
-
-        elif isinstance(node, GlobalNode):
-            self.scopes[-1]["globals"].add(node.name)
-            return f"global {node.name}"
+            if node.name in self.CONST_VARS:
+                raise RuntimeError(f"Cannot reassign constant '{node.name}'")
+            val_str = self.generate(node.value)
+            self.CONST_VARS[node.name] = val_str
+            return f"{node.name} = {val_str}"
 
         elif isinstance(node, CompoundAssignNode):
             return f"{node.name} {node.op} {self.generate(node.value)}"
@@ -209,35 +148,23 @@ class Interpreter:
             return code
 
         elif isinstance(node, FuncNode):
-            self.push_scope()
             params = ", ".join(node.params)
-            body_code = self.generate(node.body)
-            self.pop_scope()
-            
-            # Indent body
-            indented_body = "\n".join("    " + line for line in body_code.split("\n"))
-            return f"def {node.name}({params}):\n{indented_body}\n"
+            code = f"def {node.name}({params}):\n"
+            code += self.indent_block(self.generate(node.body) or "pass")
+            return code
 
         elif isinstance(node, ClassNode):
-            self.push_scope()
-            fields = ", ".join(node.fields)
-            body_code = self.generate(node.body)
-            self.pop_scope()
-            
-            # Indent body
-            indented_body = "\n".join("    " + line for line in body_code.split("\n"))
-            # Basic class mapping
-            return f"class {node.name}:\n    def __init__(self, {fields}):\n" + \
-                   "\n".join(f"        self.{f} = {f}" for f in node.fields) + \
-                   f"\n{indented_body}\n"
+            # Make fields optional by defaulting to None
+            params = ", ".join(f"{f}=None" for f in node.fields)
+            code = f"class {node.name}:\n"
+            # Body of __init__ must be indented further (8 spaces total)
+            init_body = "\n".join(f"        self.{f} = {f}" for f in node.fields) or "        pass"
+            code += f"    def __init__(self, {params}):\n{init_body}\n"
+            code += self.indent_block(self.generate(node.body))
+            return code
 
         elif isinstance(node, CallNode):
-            callee_name = node.callee.name if isinstance(node.callee, VarNode) else None
             args = ", ".join(self.generate(arg) for arg in node.args)
-            
-            if callee_name and callee_name in self.builtins:
-                return f"{self.builtins[callee_name]}({args})"
-                
             return f"{self.generate(node.callee)}({args})"
 
         elif isinstance(node, AttributeNode):
@@ -253,7 +180,7 @@ class Interpreter:
             return str(node.value)
 
         elif isinstance(node, StringNode):
-            return node.value
+            return repr(node.value)
 
         elif isinstance(node, BoolNode):
             return str(node.value)
@@ -311,15 +238,23 @@ class Interpreter:
             return f"{node.name}.{node.type_} = {self.generate(node.params)}"
 
         elif isinstance(node, ImportNode):
-            self._transpile_dependency(node.name)
-            return f"import {node.name}"
+            if node.name in self.original_imports:
+                path = self.original_imports[node.name]
+                code = ""
+                
+                with open(path, "r", encoding="utf-8") as f:
+                    code = f.read()
+                _lex = lex(code.splitlines())
+                _parse = Parser(_lex).program()
+                return self.generate(_parse)
+                
+            else:
+                return f"import {node.name}"
 
         elif isinstance(node, ImportAsNode):
-            self._transpile_dependency(node.name)
             return f"import {node.name} as {node.alias}"
 
         elif isinstance(node, ImportFromNode):
-            self._transpile_dependency(node.lib)
             return f"from {node.lib} import {node.name}"
 
         elif isinstance(node, ReturnNode):
@@ -340,6 +275,18 @@ class Interpreter:
 
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
+
+        elif isinstance(node, LenNode):
+            return f"len({self.generate(node.value)})"
+
+        elif isinstance(node, SqrtNode):
+            return f"math.sqrt({self.generate(node.value)})"
+
+        elif isinstance(node, RandNumNode):
+            return f"random.randint({self.generate(node.start)}, {self.generate(node.end)})"
+
+        elif isinstance(node, CastNode):
+            return f"{node.cast_type}({self.generate(node.value)})"
 
         elif isinstance(node, InputNode):
             prompt = self.generate(node.prompt) if node.prompt else ""

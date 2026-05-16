@@ -57,10 +57,6 @@ def run_origin(file_path):
         file_dir = os.path.dirname(os.path.abspath(file_path))
         if file_dir:
             os.chdir(file_dir)
-            # Add cache directory to path so Python can find transpiled Origin modules
-            cache_path = os.path.join(file_dir, "__origin_cache__")
-            if cache_path not in sys.path:
-                sys.path.insert(0, cache_path)
             
         try:
             exec(generated_python, runtime_globals)
@@ -91,17 +87,8 @@ def run_origin(file_path):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Origin Programming Language v1.7.5")
-        print("Usage:")
-        print("  origin <file.or>        - Run a script")
-        print("  origin build <file.or>  - Build a standalone binary")
+        print("Usage: origin <file.or>")
         sys.exit(1)
 
-    if sys.argv[1] == "build":
-        if len(sys.argv) < 3:
-            print("Error: Please specify a file to build.")
-            sys.exit(1)
-        from builder import build_binary
-        build_binary(sys.argv[2])
-    else:
-        target_file = sys.argv[1]
-        run_origin(target_file)
+    target_file = sys.argv[1]
+    run_origin(target_file)

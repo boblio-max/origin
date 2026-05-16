@@ -5,45 +5,50 @@ import sys
 from classes import *
 
 class OpCode:
-    PUSH_CONST = 0x01
-    LOAD_VAR   = 0x02
-    STORE_VAR  = 0x03
-    ADD        = 0x04
-    SUB        = 0x05
-    MUL        = 0x06
-    DIV        = 0x07
-    MOD        = 0x08
-    POW        = 0x09
-    NEGATE     = 0x0A
-    EQ         = 0x0B
-    NEQ        = 0x0C
-    LT         = 0x0D
-    GT         = 0x0E
-    LTE        = 0x0F
-    GTE        = 0x10
-    AND        = 0x11
-    OR         = 0x12
-    NOT        = 0x13
-    JMP        = 0x14
+    PUSH_CONST   = 0x01
+    LOAD_VAR     = 0x02
+    STORE_VAR    = 0x03
+    ADD          = 0x04
+    SUB          = 0x05
+    MUL          = 0x06
+    DIV          = 0x07
+    MOD          = 0x08
+    POW          = 0x09
+    NEGATE       = 0x0A
+    EQ           = 0x0B
+    NEQ          = 0x0C
+    LT           = 0x0D
+    GT           = 0x0E
+    LTE          = 0x0F
+    GTE          = 0x10
+    AND          = 0x11
+    OR           = 0x12
+    NOT          = 0x13
+    JMP          = 0x14
     JMP_IF_FALSE = 0x15
-    PRINT      = 0x16
-    INPUT      = 0x17
-    LEN        = 0x18
-    SQRT       = 0x19
-    RAND_NUM   = 0x1A
-    LIST_INIT  = 0x1B
-    DICT_INIT  = 0x1C
-    INDEX_LOAD = 0x1D
-    INDEX_STORE= 0x1E
-    HALT       = 0x1F
-    POP        = 0x20
-    DUP        = 0x21
-    CALL       = 0x22
-    RETURN     = 0x23
-    LOOP_START = 0x24 # For break/continue logic
-    LOOP_END   = 0x25
-    BREAK      = 0x26
-    CONTINUE   = 0x27
+    PRINT        = 0x16
+    INPUT        = 0x17
+    LEN          = 0x18
+    SQRT         = 0x19
+    RAND_NUM     = 0x1A
+    LIST_INIT    = 0x1B
+    DICT_INIT    = 0x1C
+    INDEX_LOAD   = 0x1D
+    INDEX_STORE  = 0x1E
+    HALT         = 0x1F
+    POP          = 0x20
+    DUP          = 0x21
+    CALL         = 0x22
+    RETURN       = 0x23
+    LOOP_START   = 0x24 # For break/continue logic
+    LOOP_END     = 0x25
+    BREAK        = 0x26
+    CONTINUE     = 0x27
+    CAST_STR     = 0x28
+    CAST_INT     = 0x29
+    CAST_FLOAT   = 0x2A
+    GET_ITER     = 0x2B
+    FOR_ITER     = 0x2C
 
 class Compiler:
     def __init__(self):
@@ -234,6 +239,64 @@ class Compiler:
             self.loop_starts.pop()
             self.loop_ends.pop()
 
+        elif isinstance(node, CompoundAssignNode):
+            var_idx = self.add_constant(node.name)
+            # 1. Get the current value
+            self.emit(OpCode.LOAD_VAR, var_idx)
+            # 2. Get the new value
+            self.compile(node.value)
+            
+            # 3. Choose the operation
+            op_map = {
+                '+=': OpCode.ADD,
+                '-=': OpCode.SUB,
+                '*=': OpCode.MUL,
+                '/=': OpCode.DIV,
+                '%=': OpCode.MOD,
+                '**=': OpCode.POW
+            }
+            
+            if node.op in op_map:
+                self.emit(op_map[node.op])
+                # 4. Save the result back to the variable
+                self.emit(OpCode.STORE_VAR, var_idx)
+            else:
+                raise RuntimeError(f"Unsupported compound assign: {node.op}")
+            
+        elif isinstance(node, ForNode):
+            # 1. Compile the thing we are looping over
+            self.compile(node.iterable)
+            # 2. Create the iterator (bookmark)
+            self.emit(OpCode.GET_ITER)
+            
+            # 3. Start of the loop
+            start_pc = len(self.bytecode)
+            self.loop_starts.append(start_pc)
+            
+            # 4. Get next item or jump to end if done
+            exit_jmp_idx = self.emit_jmp(OpCode.FOR_ITER)
+            
+            # 5. Save the item to the loop variable (e.g. 'x')
+            var_idx = self.add_constant(node.var_name)
+            self.emit(OpCode.STORE_VAR, var_idx)
+            
+            # 6. Compile the code inside the loop
+            breaks = []
+            self.loop_ends.append(breaks)
+            self.compile(node.body)
+            
+            # 7. Jump back to step 4 to get the next item
+            self.emit_jmp(OpCode.JMP, start_pc)
+            
+            # 8. Patch the exit jump for when we are finished
+            self.patch_jmp(exit_jmp_idx, len(self.bytecode))
+            
+            # 9. Clean up any breaks
+            for b_idx in breaks:
+                self.patch_jmp(b_idx, len(self.bytecode))
+            
+            self.loop_starts.pop()
+            self.loop_ends.pop()
         elif isinstance(node, BreakNode):
             if not self.loop_ends: raise RuntimeError("Break outside loop")
             self.loop_ends[-1].append(self.emit_jmp(OpCode.JMP))
@@ -263,6 +326,15 @@ class Compiler:
             self.compile(node.index)
             self.compile(node.value)
             self.emit(OpCode.INDEX_STORE)
+
+        elif isinstance(node, RangeNode):
+            self.compile(node.start)
+            self.compile(node.end)
+            # We don't have a RANGE opcode, so we'll just use a CALL to Python's range
+            # Or we can just add a RANGE OpCode. Let's use a Call for now to keep it simple.
+            idx = self.add_constant(range)
+            self.emit(OpCode.PUSH_CONST, idx)
+            self.emit(OpCode.CALL, 2)
 
         elif isinstance(node, LenNode):
             self.compile(node.value)
@@ -312,6 +384,17 @@ class Compiler:
                 self.compile(node.callee)
             
             self.emit(OpCode.CALL, len(node.args))
+
+        elif isinstance(node, CastNode):
+            self.compile(node.value)
+            if node.cast_type == "str":
+                self.emit(OpCode.CAST_STR)
+            elif node.cast_type == "int":
+                self.emit(OpCode.CAST_INT)
+            elif node.cast_type == "float":
+                self.emit(OpCode.CAST_FLOAT)
+            else:
+                raise RuntimeError(f"Unsupported cast target: {node.cast_type}")
 
         elif isinstance(node, ReturnNode):
             self.compile(node.value)
@@ -380,6 +463,20 @@ class VM:
                 a = self.stack.pop()
                 self.stack.append(a / b)
 
+            elif opcode == OpCode.MOD:
+                b = self.stack.pop()
+                a = self.stack.pop()
+                self.stack.append(a % b)
+            
+            elif opcode == OpCode.POW:
+                b = self.stack.pop()
+                a = self.stack.pop()
+                self.stack.append(a ** b)
+                
+            elif opcode == OpCode.NEGATE:
+                val = self.stack.pop()
+                self.stack.append(-(val))
+                
             elif opcode == OpCode.EQ:
                 b = self.stack.pop()
                 a = self.stack.pop()
@@ -448,12 +545,56 @@ class VM:
                 val = self.stack.pop()
                 self.stack.append(len(val))
 
+            elif opcode == OpCode.AND:
+                b = self.stack.pop()
+                a = self.stack.pop()
+                self.stack.append(a and b)
+            
+            elif opcode == OpCode.OR:
+                b = self.stack.pop()
+                a = self.stack.pop()
+                self.stack.append(a or b)
+                
+            elif opcode == OpCode.CAST_STR:
+                self.stack.append(str(self.stack.pop()))
+                
+            elif opcode == OpCode.CAST_INT:
+                self.stack.append(int(self.stack.pop()))
+            
+            elif opcode == OpCode.CAST_FLOAT:
+                self.stack.append(float(self.stack.pop()))
+
+            elif opcode == OpCode.GET_ITER:
+                obj = self.stack.pop()
+                self.stack.append(iter(obj))
+
+            elif opcode == OpCode.FOR_ITER:
+                target = (self.bytecode[self.pc] << 8) | self.bytecode[self.pc+1]
+                self.pc += 2
+                it = self.stack[-1] # Peek at the iterator on the stack
+                try:
+                    val = next(it)
+                    self.stack.append(val)
+                except StopIteration:
+                    self.stack.pop() # Remove the exhausted iterator
+                    self.pc = target
+                
             elif opcode == OpCode.CALL:
                 num_args = self.bytecode[self.pc]
                 self.pc += 1
-                func_pc = self.stack.pop() # Function entry point is on top of stack
-                self.call_stack.append(self.pc) # Save current PC for return
-                self.pc = func_pc # Jump to function entry point
+                func = self.stack.pop() 
+                
+                if isinstance(func, int):
+                    # It's a bytecode function address (jump to it)
+                    self.call_stack.append(self.pc) 
+                    self.pc = func 
+                else:
+                    # It's a Python built-in function (like range or str)
+                    args = []
+                    for _ in range(num_args):
+                        args.insert(0, self.stack.pop())
+                    result = func(*args)
+                    self.stack.append(result)
 
             elif opcode == OpCode.RETURN:
                 if self.call_stack:
