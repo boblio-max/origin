@@ -61,6 +61,14 @@ class StringNode(ASTNode):
     def __repr__(self): 
         return f"StringNode({self.value!r}, {self.type})"
 
+class FormattedStringNode(ASTNode):
+    """Formatted string with interleaved text and expression parts."""
+    def __init__(self, parts):
+        super().__init__()
+        self.parts = parts  # list of StringNode or expression nodes
+    def __repr__(self):
+        return f"FormattedStringNode({self.parts})"
+
 class BoolNode(ASTNode):
     """Boolean literal (True/False)."""
     def __init__(self, value: bool):
@@ -104,11 +112,11 @@ class AssignNode(ASTNode):
 
 class ConstAssignNode(ASTNode):
     """Constant declaration (const)."""
-    def __init__(self, name, value):
+    def __init__(self, name, value, _type=None):
         super().__init__()
-        self.name, self.value = name, value
+        self.name, self.value, self.type = name, value, _type
     def __repr__(self):
-        return f"ConstAssignNode({self.name}, {self.value})"
+        return f"ConstAssignNode({self.name}, {self.value}, {self.type})"
 
 class CompoundAssignNode(ASTNode):
     """Compound assignment (+=, -=, etc.)."""
@@ -150,7 +158,7 @@ class LogicOpNode(ASTNode):
 
 class SpecialOpNode(ASTNode):
     """Special internal operators."""
-    def __init__(self, left, op, right):
+    def __init__(self, type, left, op, right):
         super().__init__()
         self.left = left
         self.op = op
@@ -158,6 +166,22 @@ class SpecialOpNode(ASTNode):
     def __repr__(self):
         return f"SpecialOpNode({self.left}, {self.op!r}, {self.right})"
 
+class PipeNode(ASTNode):
+    """Pipeline operation (value -> function)."""
+    def __init__(self, value, func):
+        super().__init__()
+        self.value = value   # left side (the data)
+        self.func = func     # right side (the function to call)
+    def __repr__(self):
+        return f"PipeNode({self.value}, {self.func})"
+    
+class LambdaNode(ASTNode):
+    def __init__(self, var, func):
+        super().__init__()
+        self.var = var
+        self.func = func
+    def __repr__(self):
+        return f"LambdaNode({self.var}, {self.func})"
 class IfNode(ASTNode):
     """Control flow (if/elif/else)."""
     def __init__(self, condition, then_body, elif_nodes=None, else_body=None):
@@ -188,14 +212,14 @@ class WhileNode(ASTNode):
         return f"WhileNode({self.condition}, {self.body})"
 
 class ForNode(ASTNode):
-    """For-each loop."""
-    def __init__(self, var_name, iterable, body):
+    """For-each loop. `var` may be a single `VarNode` or a `TupleNode`/`ListNode` of `VarNode`s for unpacking."""
+    def __init__(self, var, iterable, body):
         super().__init__()
-        self.var_name = var_name
+        self.var = var
         self.iterable = iterable
         self.body = body
     def __repr__(self):
-        return f"ForNode({self.var_name}, {self.iterable}, {self.body})"
+        return f"ForNode({self.var}, {self.iterable}, {self.body})"
 
 class TryNode(ASTNode): 
     """Try-except block."""
@@ -457,3 +481,18 @@ class YieldNode(ASTNode):
         self.value = value
     def __repr__(self):
         return f"YieldNode({self.value})"
+    
+# MAKE INTO LIBRARY
+class GraphNode(ASTNode):
+    """Graphing Data"""
+    def __init__(self, name, params1, params2, labelx, labely, colorx, colory, marker):
+        self.name = name 
+        self.params1 = params1
+        self.params2 = params2
+        self.labelx = labelx
+        self.labely = labely
+        self.colorx = colorx
+        self.colory = colory
+        self.marker = marker
+    def __repr__(self):
+        return f"GraphNode({self.name}, {self.params1}, {self.params2}, {self.labelx}, {self.labely}, {self.colorx},{self.colory}, {self.marker})"

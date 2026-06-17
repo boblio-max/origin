@@ -17,6 +17,7 @@ TOKEN_REGEX = [
     (r"0x[0-9a-fA-F]+",      "HEX"),      # Hexadecimal numbers
     (r"\d+\.\d+",            "FLOAT"),    # Floating-point numbers
     (r"\d+",                 "INT"),      # Integer numbers
+    (r"[fF]\".*?\"|[fF]'.*?'", "FSTRING"), # Formatted f-strings
     (r"\".*?\"|'.*?'",       "STRING"),   # String literals
     (r"===|!==|==|!=|<=|>=|<>|<|>", "COMP"), # Comparison operators
     (r"\&\&|\|\||\b(and|or|not)\b|!", "LOGIC"),    # Logical operators
@@ -27,7 +28,7 @@ TOKEN_REGEX = [
     (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"), # Arithmetic and bitwise operators
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
-    (r"\b(none|if|elif|open|else|check|for|get|while|return|py|int|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|break|input|continue|def|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
+    (r"(?i)\b(none|if|elif|open|else|check|for|get|while|with|return|py|int|len|str|sqrt|float|let|rand_num|const|in|graph|print|true|exec|false|break|input|continue|def|func|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"), # Identifiers
 ]
 
@@ -73,6 +74,9 @@ def lex(code_lines):
                 if match:
                     text = match.group(0)
                     if t is not None:
+                        # Normalize keyword token text to lowercase for parser convenience
+                        if t == "KEYWORD":
+                            text = text.lower()
                         tokens.append(Token(t, text, line_num, col))
                     col += len(text)
                     break

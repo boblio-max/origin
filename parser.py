@@ -7,8 +7,9 @@ constructs an Abstract Syntax Tree (AST) comprised of node classes from
 ``classes.py``.
 """
 
-from lexer import Token, lex
+from lexer import lex, Token
 from classes import *
+
 
 class Parser:
     """Deterministic recursive-descent parser."""
@@ -63,6 +64,40 @@ class Parser:
         if tok.type == "STRING":
             self.eat("STRING")
             return StringNode(tok.value[1:-1], "str")
+        if tok.type == "FSTRING":
+            # Parse formatted string content into parts (text and expressions)
+            self.eat("FSTRING")
+            val = tok.value
+            # val starts with f" or f'
+            quote = val[1]
+            inner = val[2:-1]
+            parts = []
+            i = 0
+            while i < len(inner):
+                if inner[i] == '{':
+                    # find matching '}' (no nesting of expressions assumed, but handle nested braces)
+                    j = i + 1
+                    depth = 1
+                    while j < len(inner) and depth > 0:
+                        if inner[j] == '{': depth += 1
+                        elif inner[j] == '}': depth -= 1
+                        j += 1
+                    if depth != 0:
+                        raise SyntaxError("Unmatched '{' in f-string")
+                    expr_text = inner[i+1:j-1]
+                    # Lex and parse the inner expression
+                    expr_tokens = lex(expr_text.splitlines())
+                    expr_node = Parser(expr_tokens).special_expr()
+                    parts.append(expr_node)
+                    i = j
+                else:
+                    j = i
+                    while j < len(inner) and inner[j] != '{':
+                        j += 1
+                    text = inner[i:j]
+                    parts.append(StringNode(text))
+                    i = j
+            return FormattedStringNode(parts)
         
         if tok.type == "KEYWORD":
             if tok.value == "range":
@@ -121,6 +156,29 @@ class Parser:
                 self.eat("BRACKET")  # ]
                 return ListCallNode(list_node, pos)
             
+            if tok.value == "self":
+                self.eat("KEYWORD")
+                node = VarNode("self")
+                while True:
+                    if self.current_token().type == "SYMBOL" and self.current_token().value == ".":
+                        self.eat("SYMBOL")
+                        attr_name = self.eat("IDENT").value
+                        node = AttributeNode(node, attr_name)
+                    elif self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+                        self.eat("SYMBOL")
+                        args = []
+                        self.skip_newlines()
+                        if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
+                            args.append(self.special_expr())
+                            while self.current_token().type == ",":
+                                self.eat("SYMBOL")
+                                args.append(self.special_expr())
+                        self.eat("SYMBOL")
+                        node = CallNode(node, args)
+                    else:
+                        break
+                return node
+            
             if tok.value in ("int", "str", "float", "bool"):
                 func_name = self.eat("KEYWORD").value
                 self.eat("SYMBOL")  # (
@@ -129,6 +187,12 @@ class Parser:
                 return CastNode(func_name, arg)
 
         if tok.type == "IDENT":
+            # Look ahead for lambda syntax: identifier => expression
+            if self.pos + 1 < len(self.tokens):
+                next_tok = self.tokens[self.pos + 1]
+                if next_tok.type == "SPECIAL" and next_tok.value == "=>":
+                    return self.lambda_expr()
+
             name = self.eat("IDENT").value
             
             # Hardware primitives
@@ -181,6 +245,20 @@ class Parser:
                     self.eat("SYMBOL")  # .
                     attr_name = self.eat("IDENT").value
                     node = AttributeNode(node, attr_name)
+
+                    # Support non-parenthesized method call syntax: `obj.method arg`
+                    # Optionally allow a type annotation after the argument: `obj.method 3:int`
+                    # Only treat as a call when the next token can start an expression.
+                    nxt = self.current_token()
+                    if nxt.type in ("INT", "HEX", "FLOAT", "STRING", "IDENT") or (nxt.type == "BRACKET" and nxt.value in ("[", "{")):
+                        # Parse a single expression as the argument
+                        arg = self.special_expr()
+                        # Optional type annotation after the arg: ':' TYPE
+                        if self.current_token().type == "SYMBOL" and self.current_token().value == ":":
+                            self.eat("SYMBOL")
+                            type_tok = self.eat(self.current_token().type).value
+                            arg = CastNode(type_tok, arg)
+                        node = CallNode(node, [arg])
 
                 else:
                     break
@@ -292,8 +370,19 @@ class Parser:
         node = self.logic()
         while self.current_token().type == "SPECIAL":
             op = self.eat("SPECIAL").value
-            node = SpecialOpNode(node, op, self.logic())
+            right = self.logic()
+            if op == "->":
+                node = PipeNode(node, right)   
+            else:
+                node = SpecialOpNode(node, op, right)
         return node
+
+    def lambda_expr(self):
+        """Parses a lambda expression: parameter => body_expression"""
+        var_tok = self.eat("IDENT")
+        self.eat("SPECIAL")  # Consumes the '=>' operator
+        body = self.special_expr()  # Recursively parse the body as a full expression
+        return LambdaNode(var_tok.value, body)
 
     def statement(self):
         self.skip_newlines()
@@ -331,22 +420,48 @@ class Parser:
                 self.eat("KEYWORD")
                 name = self.eat("IDENT").value
                 _type = None
+                assigned = True
                 if self.current_token().value == ":":
                     self.eat("SYMBOL")
                     _type = self.eat(self.current_token().type).value # int, float, etc.
+                # Little suprise
+                else:
+                    assigned = False
+                    
                 self.eat("ASSIGN")
                 value = self.special_expr()
+                if not assigned:
+                    _type = type(value).__name__
                 return AssignNode(name, value, _type)
 
+            if tok.value == "self":
+                start_pos = self.pos
+                try:
+                    target = self.factor()
+                    if self.current_token().type == "ASSIGN":
+                        self.eat("ASSIGN")
+                        value = self.special_expr()
+                        if isinstance(target, AttributeNode):
+                            return AttributeAssignNode(target.obj, target.attr, value)
+                except SyntaxError:
+                    pass
+                self.pos = start_pos
+                
             if tok.value == "const":
                 self.eat("KEYWORD")
                 name = self.eat("IDENT").value
+                _type = None
+                assigned = True
                 if self.current_token().value == ":":
                     self.eat("SYMBOL")
-                    self.eat(self.current_token().type)
+                    _type = self.eat(self.current_token().type)
+                else:
+                    assigned = False
                 self.eat("ASSIGN")
                 value = self.special_expr()
-                return ConstAssignNode(name, value)
+                if not assigned:
+                    _type = type(value).__name__
+                return ConstAssignNode(name, value, _type)
 
             if tok.value == "set":
                 self.eat("KEYWORD")
@@ -368,14 +483,226 @@ class Parser:
                     if self.current_token().value == ",": self.eat("SYMBOL")
                     param = self.special_expr()
                 return SetNode(name, num, subtype, param)
-
             if tok.value == "print":
+                # Support both normal print statements and single-line `print ... for ...` forms
                 self.eat("KEYWORD")
-                return PrintNode(self.special_expr())
+                # Parse one or more comma-separated expressions as print arguments
+                args = []
+                self.skip_newlines()
+                # If next token is not a for/EOF/BRACE, parse expressions
+                if not (self.current_token().type == "KEYWORD" and self.current_token().value == "for"):
+                    args.append(self.special_expr())
+                    while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                        self.eat("SYMBOL")
+                        self.skip_newlines()
+                        # Stop if 'for' follows (allow trailing commas before for)
+                        if self.current_token().type == "KEYWORD" and self.current_token().value == "for":
+                            break
+                        args.append(self.special_expr())
+
+                expr_node = args[0] if len(args) == 1 else TupleNode(args)
+
+                # Handle single-line `print ... for ...` syntax
+                if self.current_token().type == "KEYWORD" and self.current_token().value == "for":
+                    # Reuse the existing for-loop parsing logic: parse target and iterable
+                    self.eat("KEYWORD")
+                    # Parse target: allow single identifier or unpacking (reuse logic similar to for branch)
+                    if self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+                        self.eat("SYMBOL")
+                        targets = []
+                        self.skip_newlines()
+                        if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
+                            if self.current_token().type in ("IDENT", "KEYWORD"):
+                                targets.append(VarNode(self.eat(self.current_token().type).value))
+                            while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                                self.eat("SYMBOL")
+                                self.skip_newlines()
+                                targets.append(VarNode(self.eat(self.current_token().type).value))
+                        self.skip_newlines()
+                        self.eat("SYMBOL")
+                        var = TupleNode(targets)
+                    elif self.current_token().type == "BRACKET" and self.current_token().value == "[":
+                        self.eat("BRACKET")
+                        targets = []
+                        self.skip_newlines()
+                        if not (self.current_token().type == "BRACKET" and self.current_token().value == "]"):
+                            if self.current_token().type in ("IDENT", "KEYWORD"):
+                                targets.append(VarNode(self.eat(self.current_token().type).value))
+                            while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                                self.eat("SYMBOL")
+                                self.skip_newlines()
+                                targets.append(VarNode(self.eat(self.current_token().type).value))
+                        self.skip_newlines()
+                        self.eat("BRACKET")
+                        var = ListNode(targets)
+                    else:
+                        # bare unpacking or single identifier
+                        if self.current_token().type in ("IDENT", "KEYWORD"):
+                            first_name = self.eat(self.current_token().type).value
+                            if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                                targets = [VarNode(first_name)]
+                                while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                                    self.eat("SYMBOL")
+                                    self.skip_newlines()
+                                    targets.append(VarNode(self.eat(self.current_token().type).value))
+                                var = TupleNode(targets)
+                            else:
+                                var = VarNode(first_name)
+                        else:
+                            raise SyntaxError("Expected identifier for for-loop target")
+
+                    self.eat("KEYWORD") # in
+                    iterable = self.special_expr()
+                    # Build a ForNode whose body is a single PrintNode of the parsed expr_node
+                    return ForNode(var, iterable, BlockNode([PrintNode(expr_node)]))
+
+                return PrintNode(expr_node)
 
             if tok.value == "if":
                 return self.if_stmt()
 
+            if tok.value == "graph":
+                self.eat("KEYWORD")
+                # Optional graph name (string or identifier)
+                name = None
+                if self.current_token().type == "STRING":
+                    name = self.eat("STRING").value[1:-1]
+                elif self.current_token().type in ("IDENT", "KEYWORD"):
+                    name = self.eat(self.current_token().type).value
+
+                # Optional 'with' block: `graph "my graph" with { key: prop(args) as "label", ... }`
+                entries = None
+                if self.current_token().type == "KEYWORD" and self.current_token().value == "with":
+                    self.eat("KEYWORD")
+                    # Parse a brace-enclosed list of entries
+                    self.eat("BRACKET")  # {
+                    entries = {}
+                    self.skip_newlines()
+                    while self.current_token().type != "BRACKET" or self.current_token().value != "}":
+                        # Field name (IDENT or KEYWORD)
+                        if self.current_token().type in ("IDENT", "KEYWORD"):
+                            field = self.eat(self.current_token().type).value
+                        else:
+                            raise SyntaxError("Expected identifier for graph field")
+
+                        # Expect ':'
+                        if self.current_token().type == "SYMBOL" and self.current_token().value == ":":
+                            self.eat("SYMBOL")
+                        else:
+                            raise SyntaxError("Expected ':' after graph field name")
+
+                        # Property name (e.g., color) - allow keywords too
+                        if self.current_token().type in ("IDENT", "KEYWORD"):
+                            prop = self.eat(self.current_token().type).value
+                        else:
+                            raise SyntaxError("Expected property name in graph field")
+
+                        # Optional argument list in parentheses
+                        args = None
+                        if self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+                            self.eat("SYMBOL")
+                            args = []
+                            self.skip_newlines()
+                            if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
+                                args.append(self.special_expr())
+                                while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                                    self.eat("SYMBOL")
+                                    self.skip_newlines()
+                                    args.append(self.special_expr())
+                            self.eat("SYMBOL")  # )
+
+                        # Optional `as` label
+                        label = None
+                        if self.current_token().type == "KEYWORD" and self.current_token().value == "as":
+                            self.eat("KEYWORD")
+                            if self.current_token().type == "STRING":
+                                label = self.eat("STRING").value[1:-1]
+                            else:
+                                raise SyntaxError("Expected string after 'as' in graph field")
+
+                        entries[field] = {"prop": prop, "args": args, "label": label}
+
+                        self.skip_newlines()
+                        # Trailing comma optional before closing brace
+                        if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                            self.eat("SYMBOL")
+                            self.skip_newlines()
+
+                    self.eat("BRACKET")  # }
+
+                # Normalize parsed entries into params2 and populate color/marker fields
+                params2 = None
+                color_map = None
+                marker_map = None
+                labelx = None
+                labely = None
+
+                if entries:
+                    params2 = {}
+                    color_map = {}
+                    marker_map = {}
+                    for field, info in entries.items():
+                        prop = info.get("prop")
+                        args = info.get("args")
+                        label = info.get("label")
+
+                        # Normalize color arguments into an (r,g,b) tuple when possible
+                        normalized = None
+                        if prop == "color" and args:
+                            elems = []
+                            # args may be a single TupleNode or multiple NumberNode items
+                            if len(args) == 1 and type(args[0]).__name__ == "TupleNode":
+                                elems = args[0].elements
+                            else:
+                                elems = args
+                            try:
+                                rgb = tuple(int(e.value) for e in elems if hasattr(e, "value"))
+                            except Exception:
+                                rgb = None
+                            normalized = rgb
+                            if rgb is not None:
+                                color_map[field] = rgb
+
+                        # Normalize marker argument to string when possible
+                        elif prop == "marker" and args:
+                            m = args[0]
+                            if type(m).__name__ == "StringNode":
+                                marker = m.value
+                            elif type(m).__name__ == "VarNode":
+                                marker = m.name
+                            else:
+                                marker = None
+                            normalized = marker
+                            if marker is not None:
+                                marker_map[field] = marker
+
+                        else:
+                            # Keep raw AST args for unknown props
+                            normalized = args
+
+                        params2[field] = {"prop": prop, "value": normalized, "label": label}
+
+                    # Populate axis labels if present
+                    if "X" in entries and entries["X"].get("label"):
+                        labelx = entries["X"]["label"]
+                    if "Y" in entries and entries["Y"].get("label"):
+                        labely = entries["Y"]["label"]
+
+                    # If color_map or marker_map are empty, use None
+                    if not color_map:
+                        color_map = None
+                    if not marker_map:
+                        marker_map = None
+
+                # Split color_map into X/Y specific fields expected by GraphNode
+                colorx = None
+                colory = None
+                if color_map:
+                    colorx = color_map.get("X")
+                    colory = color_map.get("Y")
+
+                return GraphNode(name, entries, params2, labelx, labely, colorx, colory, marker_map)
+            
             if tok.value == "while":
                 self.eat("KEYWORD")
                 condition = self.special_expr()
@@ -384,22 +711,74 @@ class Parser:
 
             if tok.value == "for":
                 self.eat("KEYWORD")
-                var = self.eat("IDENT").value
+                # Parse target: allow a single identifier or an unpacking tuple/list
+                if self.current_token().type == "SYMBOL" and self.current_token().value == "(":
+                    # Parenthesized unpacking target
+                    self.eat("SYMBOL")  # (
+                    targets = []
+                    self.skip_newlines()
+                    if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
+                        if self.current_token().type in ("IDENT", "KEYWORD"):
+                            targets.append(VarNode(self.eat(self.current_token().type).value))
+                        while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                            self.eat("SYMBOL")
+                            self.skip_newlines()
+                            targets.append(VarNode(self.eat(self.current_token().type).value))
+                    self.skip_newlines()
+                    self.eat("SYMBOL")  # )
+                    var = TupleNode(targets)
+                elif self.current_token().type == "BRACKET" and self.current_token().value == "[":
+                    # Bracketed unpacking target
+                    self.eat("BRACKET")  # [
+                    targets = []
+                    self.skip_newlines()
+                    if not (self.current_token().type == "BRACKET" and self.current_token().value == "]"):
+                        if self.current_token().type in ("IDENT", "KEYWORD"):
+                            targets.append(VarNode(self.eat(self.current_token().type).value))
+                        while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                            self.eat("SYMBOL")
+                            self.skip_newlines()
+                            targets.append(VarNode(self.eat(self.current_token().type).value))
+                    self.skip_newlines()
+                    self.eat("BRACKET")  # ]
+                    var = ListNode(targets)
+                else:
+                    # Support bare unpacking: `for a, b in iterable` (no parentheses)
+                    if self.current_token().type in ("IDENT", "KEYWORD"):
+                        first_name = self.eat(self.current_token().type).value
+                        if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                            targets = [VarNode(first_name)]
+                            while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                                self.eat("SYMBOL")
+                                self.skip_newlines()
+                                if self.current_token().type in ("IDENT", "KEYWORD"):
+                                    targets.append(VarNode(self.eat(self.current_token().type).value))
+                                else:
+                                    raise SyntaxError("Expected identifier in unpacking target")
+                            var = TupleNode(targets)
+                        else:
+                            var = VarNode(first_name)
+                    else:
+                        raise SyntaxError("Expected identifier for for-loop target")
                 self.eat("KEYWORD") # in
                 iterable = self.special_expr()
                 body = self.block()
                 return ForNode(var, iterable, body)
 
-            if tok.value == "def":
+            if tok.value in ("def", "func"):
                 self.eat("KEYWORD")
                 name = self.eat("IDENT").value
                 self.eat("SYMBOL") # (
                 params = []
                 if self.current_token().value != ")":
-                    params.append(self.eat("IDENT").value)
+                    p_tok = self.current_token()
+                    if p_tok.type in ("IDENT", "KEYWORD"):
+                        params.append(self.eat(p_tok.type).value)
                     while self.current_token().value == ",":
                         self.eat("SYMBOL")
-                        params.append(self.eat("IDENT").value)
+                        p_tok = self.current_token()
+                        if p_tok.type in ("IDENT", "KEYWORD"):
+                            params.append(self.eat(p_tok.type).value)
                 self.eat("SYMBOL") # )
                 body = self.block()
                 return FuncNode(name, params, body)
@@ -447,7 +826,8 @@ class Parser:
 
             if tok.value == "import":
                 self.eat("KEYWORD")
-                name = self.eat("IDENT").value
+                # Allow keywords as module names
+                name = self.eat(self.current_token().type).value
                 if self.current_token().value == "as":
                     self.eat("KEYWORD")
                     alias = self.eat("IDENT").value
@@ -456,9 +836,10 @@ class Parser:
 
             if tok.value == "from":
                 self.eat("KEYWORD")
-                lib = self.eat("IDENT").value
+                lib = self.eat(self.current_token().type).value
                 self.eat("KEYWORD") # import
-                name = self.eat("IDENT").value
+                # Allow keywords as imported names
+                name = self.eat(self.current_token().type).value
                 return ImportFromNode(name, lib)
 
             if tok.value == "return":
@@ -489,11 +870,32 @@ class Parser:
                 while depth > 0:
                     t = self.current_token()
                     self.pos += 1
-                    if t.type == "BRACKET" and t.value == "{": depth += 1
+                    if t.type == "BRACKET" and t.value == "{":
+                        depth += 1
                     elif t.type == "BRACKET" and t.value == "}":
                         depth -= 1
-                        if depth == 0: break
-                    raw += t.value if t.type != "NEWLINE" else "\n"
+                        if depth == 0:
+                            break
+                    # Preserve newlines; reconstruct sensible spacing for other tokens
+                    if t.type == "NEWLINE":
+                        raw += "\n"
+                    else:
+                        token_str = t.value
+                        if raw and not raw.endswith((" ", "\n")):
+                            prev_char = raw[-1]
+                            # No space after certain punctuation (like '.' or open parens)
+                            if prev_char in ("(", "[", "{", "."):
+                                raw += token_str
+                            # No space before closing punctuation or dots
+                            elif token_str in (")", "]", "}", ",", ":", ";", "."):
+                                raw += token_str
+                            # No space before open-punctuation either
+                            elif token_str in ("(", "[", "{"):
+                                raw += token_str
+                            else:
+                                raw += " " + token_str
+                        else:
+                            raw += token_str
                 return PyNode(raw.strip())
 
         return self.special_expr()
