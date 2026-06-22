@@ -6,7 +6,6 @@
 
 **Origin** is a Python-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
-> [!TIP]
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
 ---
@@ -15,9 +14,9 @@
 
 *   **English-Like Syntax**: Write code that reads like natural language.
 *   **Built-in Library System**: Import `.or` library files with `import calc`, including a math library (`calc.or`) and graph plotting library (`graph.or`).
-*   **Hardware Primitives**: Native, intuitive commands for **Raspberry Pi GPIO** and **ServoKit (PCA9685)**.
+*   **Hardware Primitives**: Native, intuitive commands for Raspberry Pi GPIO and ServoKit (PCA9685).
 *   **Strict Typing**: Mandatory type annotations (`let x: int = 10`) for predictable state and AI-native safety.
-*   **Safe Hardware I/O**: Automatic angle clamping (0–180°) for servos to prevent physical damage.
+*   **Safe Hardware I/O**: Automatic angle clamping (0-180 degrees) for servos to prevent physical damage.
 *   **Formal Module System**: Professional namespacing and module support (`import math as m`, `from lib import x`).
 *   **Binary Builder**: Compile your Origin scripts into standalone, zero-dependency `.exe` files.
 *   **Modern Logic**: Support for Object-Oriented Programming (classes), `try/except/else`, `parallel` thread blocks, and robust scope management.
@@ -26,14 +25,14 @@
 
 ## Installation
 
-### 🚀 Standalone (Recommended)
+### Standalone (Recommended)
 You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
 
 1. **Download**: [Origin v1.7.9 Stable](https://docs-origin.onrender.com/download.html)
 2. **Install**: Run `secure_install.ps1` with PowerShell.
 3. **Usage**: Open a new terminal and type `origin`.
 
-### 🛠️ Developer / Source
+### Developer / Source
 1. **Clone the repository**:
    ```powershell
    git clone https://github.com/boblio-max/origin.git
