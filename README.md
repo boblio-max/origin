@@ -1,8 +1,8 @@
-# Origin Programming Language · v1.7.5
+# Origin Programming Language · v1.7.9
 
 [![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)
-[![Version](https://img.shields.io/badge/Version-v1.7.5-blue?style=flat-square)](https://docs-origin.onrender.com)
-[![Platform](https://img.shields.io/badge/Platform-Raspberry_Pi-red?style=flat-square)](https://docs-origin.onrender.com)
+[![Version](https://img.shields.io/badge/Version-v1.7.9-blue?style=flat-square)](https://docs-origin.onrender.com)
+[![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
 
 **Origin** is a Python-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
@@ -14,7 +14,8 @@
 ## Key Features
 
 *   **English-Like Syntax**: Write code that reads like natural language.
-*   **Hardware-First**: Native, intuitive commands for **Raspberry Pi GPIO** and **ServoKit (PCA9685)**.
+*   **Built-in Library System**: Import `.or` library files with `import calc`, including a math library (`calc.or`) and graph plotting library (`graph.or`).
+*   **Hardware Primitives**: Native, intuitive commands for **Raspberry Pi GPIO** and **ServoKit (PCA9685)**.
 *   **Strict Typing**: Mandatory type annotations (`let x: int = 10`) for predictable state and AI-native safety.
 *   **Safe Hardware I/O**: Automatic angle clamping (0–180°) for servos to prevent physical damage.
 *   **Formal Module System**: Professional namespacing and module support (`import math as m`, `from lib import x`).
@@ -28,8 +29,8 @@
 ### 🚀 Standalone (Recommended)
 You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
 
-1. **Download**: [Origin v1.7.5 Stable](https://docs-origin.onrender.com/download.html)
-2. **Install**: Run `install_origin.ps1` with PowerShell.
+1. **Download**: [Origin v1.7.9 Stable](https://docs-origin.onrender.com/download.html)
+2. **Install**: Run `secure_install.ps1` with PowerShell.
 3. **Usage**: Open a new terminal and type `origin`.
 
 ### 🛠️ Developer / Source
@@ -58,7 +59,25 @@ const pi: float = 3.14159     # Immutable constant
 let   data: none = none       # None literal
 ```
 
-### 2. Hardware Control
+### 2. Built-in Libraries
+Origin includes a standard library system under `lib/`. Use `import` to load them:
+
+```origin
+import calc
+import graph
+
+# Math utilities
+calc = calc()
+print calc.sqrt(25)
+print calc.pi
+
+# Graph plotting
+graph "My Plot" with {
+    X: color(1,0,0) as "Line A",
+}
+```
+
+### 3. Hardware Control
 Control hardware directly with the `set` namespace and native protocol primitives.
 
 ```origin
@@ -73,7 +92,7 @@ i2c.read 0x40, 4
 spi.write 0x01
 ```
 
-### 3. Data Structures
+### 4. Data Structures
 ```origin
 # Lists
 let tools: list = ["Servo", "GPIO", "I2C"]
@@ -87,7 +106,7 @@ print config{"speed"}
 let coord: tuple = (10, 20)
 ```
 
-### 4. Raw Python Blocks
+### 5. Raw Python Blocks
 Seamlessly bridge the gap between Origin and Python.
 
 ```origin
@@ -99,7 +118,7 @@ py {
 }
 ```
 
-### 5. Module System
+### 6. Module System
 Origin supports a formal module system for clean namespacing.
 
 ```origin
@@ -110,7 +129,7 @@ print mu.square(10)
 drive(1.0)
 ```
 
-### 6. Object-Oriented Programming
+### 7. Object-Oriented Programming
 Define classes with fields and methods natively for structured development.
 
 ```origin

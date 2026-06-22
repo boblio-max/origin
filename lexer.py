@@ -9,9 +9,10 @@ declared in ``TOKEN_REGEX`` and compiled once for efficiency.
 
 import re
 
+
 # Ordered list of regular-expression patterns mapping to token type names.
 TOKEN_REGEX = [
-    (r"[ \t]+",              None),       # Ignore whitespace
+    (r"[ \t]+",              "WHITESPACE"),# Preserve whitespace for py{} blocks
     (r"#.*",                 None),       # Ignore comments
     (r"\n",                  "NEWLINE"),  # Newline characters
     (r"0x[0-9a-fA-F]+",      "HEX"),      # Hexadecimal numbers
@@ -28,7 +29,7 @@ TOKEN_REGEX = [
     (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"), # Arithmetic and bitwise operators
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
-    (r"(?i)\b(none|if|elif|open|else|check|for|get|while|with|return|py|int|len|str|sqrt|float|let|rand_num|const|in|graph|print|true|exec|false|break|input|continue|def|func|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|struct|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
+    (r"\b(none|if|elif|open|else|check|for|get|to|while|write|with|return|py|int|read|len|str|sqrt|float|let|rand_num|const|in|graph|print|true|exec|false|break|input|continue|def|func|import|from|class|try|call|except|raise|set|pass|yield|with|as|del|assert|global|nonlocal|async|await|match|case|macro|inline|parallel|when|range|unless|loop|until|do|capture|enum|type|bool|interface|pub|priv)\b", "KEYWORD"), # Reserved keywords
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"), # Identifiers
 ]
 

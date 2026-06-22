@@ -7,8 +7,9 @@ constructs an Abstract Syntax Tree (AST) comprised of node classes from
 ``classes.py``.
 """
 
-from lexer import lex, Token
-from classes import *
+import textwrap
+from ORIGIN_CODE.lexer import lex, Token
+from ORIGIN_CODE.classes import *
 
 
 class Parser:
@@ -26,7 +27,9 @@ class Parser:
         return node
 
     def current_token(self):
-        """Return the token at the current parser position."""
+        """Return the next non-whitespace token, skipping WHITESPACE."""
+        while self.pos < len(self.tokens) and self.tokens[self.pos].type == "WHITESPACE":
+            self.pos += 1
         if self.pos < len(self.tokens):
             return self.tokens[self.pos]
         return Token("EOF", "", -1, -1)
@@ -109,6 +112,27 @@ class Parser:
                 self.eat("SYMBOL")          
                 return RangeNode(start, end)
             
+            if tok.value == "write":
+                self.eat("KEYWORD")
+                file_name = self.eat("STRING").value 
+                content = self.special_expr()  # <-- parses any expression
+                return WriteNode(file_name, content)
+                
+            if tok.value == "append":
+                self.eat("KEYWORD")
+                file_name = self.eat("STRING").value 
+                content = self.special_expr()  # <-- parses any expression
+                return AppendNode(file_name, content)
+            if tok.value == "read":
+                self.eat("KEYWORD")                
+                file_name = self.eat("STRING").value 
+                count = -1
+                if self.current_token().value == "to":
+                    self.eat("KEYWORD")
+                    count = int(self.eat("INT").value)
+                return ReadNode(file_name, count)
+
+
             if tok.value == "input":
                 self.eat("KEYWORD")
                 prompt = None
@@ -243,7 +267,10 @@ class Parser:
                 # Attribute access
                 elif self.current_token().type == "SYMBOL" and self.current_token().value == ".":
                     self.eat("SYMBOL")  # .
-                    attr_name = self.eat("IDENT").value
+                    if self.current_token().type in ("IDENT", "KEYWORD"):
+                        attr_name = self.eat(self.current_token().type).value
+                    else:
+                        raise SyntaxError(f"Expected attribute name after '.', got {self.current_token()}")
                     node = AttributeNode(node, attr_name)
 
                     # Support non-parenthesized method call syntax: `obj.method arg`
@@ -767,7 +794,10 @@ class Parser:
 
             if tok.value in ("def", "func"):
                 self.eat("KEYWORD")
-                name = self.eat("IDENT").value
+                if self.current_token().type in ("IDENT", "KEYWORD"):
+                    name = self.eat(self.current_token().type).value
+                else:
+                    raise SyntaxError(f"Expected function name, got {self.current_token()}")
                 self.eat("SYMBOL") # (
                 params = []
                 if self.current_token().value != ")":
@@ -785,7 +815,10 @@ class Parser:
 
             if tok.value == "class":
                 self.eat("KEYWORD")
-                name = self.eat("IDENT").value
+                if self.current_token().type in ("IDENT", "KEYWORD"):
+                    name = self.eat(self.current_token().type).value
+                else:
+                    raise SyntaxError(f"Expected class name, got {self.current_token()}")
                 self.eat("SYMBOL") # (
                 fields = []
                 if self.current_token().value != ")":
@@ -868,7 +901,7 @@ class Parser:
                 raw = ""
                 depth = 1
                 while depth > 0:
-                    t = self.current_token()
+                    t = self.tokens[self.pos]
                     self.pos += 1
                     if t.type == "BRACKET" and t.value == "{":
                         depth += 1
@@ -876,27 +909,25 @@ class Parser:
                         depth -= 1
                         if depth == 0:
                             break
-                    # Preserve newlines; reconstruct sensible spacing for other tokens
                     if t.type == "NEWLINE":
                         raw += "\n"
+                    elif t.type == "WHITESPACE":
+                        raw += t.value
                     else:
                         token_str = t.value
                         if raw and not raw.endswith((" ", "\n")):
                             prev_char = raw[-1]
-                            # No space after certain punctuation (like '.' or open parens)
                             if prev_char in ("(", "[", "{", "."):
                                 raw += token_str
-                            # No space before closing punctuation or dots
                             elif token_str in (")", "]", "}", ",", ":", ";", "."):
                                 raw += token_str
-                            # No space before open-punctuation either
                             elif token_str in ("(", "[", "{"):
                                 raw += token_str
                             else:
                                 raw += " " + token_str
                         else:
                             raw += token_str
-                return PyNode(raw.strip())
+                return PyNode(textwrap.dedent(raw).strip("\n"))
 
         return self.special_expr()
 

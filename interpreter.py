@@ -13,9 +13,10 @@ import sys
 import os
 import subprocess
 from multiprocessing import Process
-from classes import *
-from lexer import lex
-from parser import Parser
+from pathlib import Path
+from ORIGIN_CODE.classes import *
+from ORIGIN_CODE.lexer import lex
+from ORIGIN_CODE.parser import Parser
 class Interpreter:
     """Generate Python source from the AST."""
 
@@ -25,7 +26,7 @@ class Interpreter:
         self.CONST_VARS = {}
         self.imports = []
         self.classes = {}
-        self.original_imports = {"calc": "/lib/calc.or"}
+        self.original_imports = {}
         # Track whether we're generating code inside a class body
         self._class_depth = 0
     def get_type(self, node):
@@ -293,14 +294,23 @@ class Interpreter:
         elif isinstance(node, ImportNode):
             if node.name in self.original_imports:
                 path = self.original_imports[node.name]
-                code = ""
-                
                 with open(path, "r", encoding="utf-8") as f:
                     code = f.read()
                 _lex = lex(code.splitlines())
                 _parse = Parser(_lex).program()
                 return self.generate(_parse)
-                
+
+            lib_dir = Path(__file__).resolve().parent / "lib"
+            or_path = lib_dir / f"{node.name}.or"
+            py_path = lib_dir / f"{node.name}.py"
+            if or_path.exists():
+                with open(or_path, encoding="utf-8") as f:
+                    code = [line.rstrip("\n") for line in f]
+                _lex = lex(code)
+                _parse = Parser(_lex).program()
+                return self.generate(_parse)
+            elif py_path.exists():
+                return f"exec(open({str(py_path)!r}).read())"
             else:
                 return f"import {node.name}"
 
@@ -320,82 +330,30 @@ class Interpreter:
             return "continue"
 
         elif isinstance(node, GraphNode):
-            # Generate code to create a 2D chart using fastplotlib, mapping GraphNode fields
+            if not getattr(self, '_graph_loaded', False):
+                self._graph_loaded = True
+                lib_path = Path(__file__).resolve().parent / "lib" / "graph.or"
+                with open(lib_path, encoding="utf-8") as f:
+                    lib_code = [line.rstrip("\n") for line in f]
+                lib_tokens = lex(lib_code)
+                lib_ast = Parser(lib_tokens).program()
+                prefix = self.generate(lib_ast) + "\n"
+            else:
+                prefix = ""
+
             name = node.name or ""
             params2 = node.params2 or {}
-            # Build simple color lookups from GraphNode colorx/colory or params2
-            colorx = getattr(node, 'colorx', None)
-            colory = getattr(node, 'colory', None)
-            if not colorx and params2.get('X') and params2['X'].get('value'):
-                colorx = params2['X'].get('value')
-            if not colory and params2.get('Y') and params2['Y'].get('value'):
-                colory = params2['Y'].get('value')
+            labelx = node.labelx or ""
+            labely = node.labely or ""
+            colorx = node.colorx
+            colory = node.colory
+            markermap = node.marker
 
-            def _rgb_to_rgba_floats(rgb):
-                if not rgb or len(rgb) < 3:
-                    return None
-                try:
-                    r = float(rgb[0]) / 255.0
-                    g = float(rgb[1]) / 255.0
-                    b = float(rgb[2]) / 255.0
-                    return (r, g, b, 1.0)
-                except Exception:
-                    return None
-
-            x_rgba = _rgb_to_rgba_floats(colorx)
-            y_rgba = _rgb_to_rgba_floats(colory)
-
-            code = "try:\n"
-            code += "    import fastplotlib as fpl\n"
-            code += "    import numpy as np\n"
-            code += "except Exception as _exc:\n"
-            code += "    if 'errors' in globals():\n"
-            code += "        try:\n"
-            code += "            errors.report_error(globals().get('_origin_source_file', None), 'Required plotting libraries missing: fastplotlib or numpy', error_type='Import Error', suggestion='pip install fastplotlib numpy')\n"
-            code += "        except Exception:\n"
-            code += "            print('[SIM] fastplotlib or numpy not available')\n"
-            code += "    else:\n"
-            code += "        print('[SIM] fastplotlib or numpy not available')\n"
-            code += "else:\n"
-            code += "    fig = fpl.Figure()\n"
-            code += "    subplot = fig[0, 0]\n"
-
-            if name:
-                code += f"    subplot.title = {repr(name)}\n"
-                code += "    subplot.title.font_size = 24\n"
-
-            # X axis label and color
-            x_title = node.labelx or (params2.get('X', {}).get('label') if params2.get('X') else None)
-            if x_title:
-                code += f"    subplot.axes.x_label = {repr(x_title)}\n"
-            if x_rgba is not None:
-                code += f"    subplot.axes.x_label.colors = ({x_rgba[0]:.6f}, {x_rgba[1]:.6f}, {x_rgba[2]:.6f}, {x_rgba[3]:.6f})\n"
-
-            # Y axis label and color
-            y_title = node.labely or (params2.get('Y', {}).get('label') if params2.get('Y') else None)
-            if y_title:
-                code += f"    subplot.axes.y_label = {repr(y_title)}\n"
-            if y_rgba is not None:
-                code += f"    subplot.axes.y_label.colors = ({y_rgba[0]:.6f}, {y_rgba[1]:.6f}, {y_rgba[2]:.6f}, {y_rgba[3]:.6f})\n"
-
-            # Add simple mock data so the plot displays
-            # Use Y color if available for the line color, otherwise default to white
-            line_color = None
-            if y_rgba is not None:
-                line_color = y_rgba
-            elif x_rgba is not None:
-                line_color = x_rgba
-            if line_color is not None:
-                code += "    xs = np.linspace(0, 10, 100)\n"
-                code += "    ys = np.sin(xs)\n"
-                code += f"    subplot.add_line(data=np.column_stack([xs, ys]), colors=({line_color[0]:.6f}, {line_color[1]:.6f}, {line_color[2]:.6f}, {line_color[3]:.6f}))\n"
-            else:
-                code += "    xs = np.linspace(0, 10, 100)\n"
-                code += "    ys = np.sin(xs)\n"
-                code += "    subplot.add_line(data=np.column_stack([xs, ys]), colors=\"white\")\n"
-
-            code += "    fig.show()\n"
-            return code
+            call = (
+                f"graph_show({repr(name)}, {repr(params2)}, {repr(labelx)}, "
+                f"{repr(labely)}, {repr(colorx)}, {repr(colory)}, {repr(markermap)})"
+            )
+            return prefix + call
 
         elif isinstance(node, PassNode):
             return "pass"
@@ -422,6 +380,20 @@ class Interpreter:
         elif isinstance(node, RangeNode):
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
 
+        elif isinstance(node, ReadNode):
+            if node.count == -1:
+                return f"open({repr(node.file_name)}).read()"
+            else:
+                return f"open({repr(node.file_name)}).read({node.count})"
+        
+        elif isinstance(node, WriteNode):
+            content = self.generate(node.content)
+            return f"open({repr(node.file_name)}, 'w').write({content})"
+        
+        elif isinstance(node, AppendNode):
+            content = self.generate(node.content)
+            return f"open({repr(node.file_name)}, 'a').write({content})"
+        
         elif isinstance(node, LenNode):
             return f"len({self.generate(node.value)})"
 

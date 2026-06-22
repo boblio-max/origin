@@ -482,6 +482,33 @@ class YieldNode(ASTNode):
     def __repr__(self):
         return f"YieldNode({self.value})"
     
+class ReadNode(ASTNode):
+    """Converts file to string"""
+    def __init__(self, file, count):
+        super().__init__()
+        self.file = file
+        self.count = count
+    def __repr__(self):
+        return f"ReadNode({self.file}, {self.count})"
+
+class WriteNode(ASTNode):
+    """Writes to a file"""
+    def __init__(self, file, contents):
+        super().__init__()
+        self.file = file
+        self.contents = contents
+    def __repr__(self):
+        return f"WriteNode({self.file}, {self.contents})"
+
+class AppendNode(ASTNode):
+    """Writes to a file"""
+    def __init__(self, file, contents):
+        super().__init__()
+        self.file = file
+        self.contents = contents
+    def __repr__(self):
+        return f"WriteNode({self.file}, {self.contents})"
+
 # MAKE INTO LIBRARY
 class GraphNode(ASTNode):
     """Graphing Data"""
