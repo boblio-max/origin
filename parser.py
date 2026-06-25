@@ -8,8 +8,8 @@ constructs an Abstract Syntax Tree (AST) comprised of node classes from
 """
 
 import textwrap
-from ORIGIN_CODE.lexer import lex, Token
-from ORIGIN_CODE.classes import *
+from lexer import lex, Token
+from classes import *
 
 
 class Parser:

@@ -2,8 +2,8 @@ import random
 import csv
 import math
 import sys
-from ORIGIN_CODE.classes import *
-from ORIGIN_CODE.bc.byteKey import OpCode
+from classes import *
+from bc.byteKey import OpCode
 
 class Compiler:
     def __init__(self):

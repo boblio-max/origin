@@ -14,9 +14,9 @@ import os
 import subprocess
 from multiprocessing import Process
 from pathlib import Path
-from ORIGIN_CODE.classes import *
-from ORIGIN_CODE.lexer import lex
-from ORIGIN_CODE.parser import Parser
+from classes import *
+from lexer import lex
+from parser import Parser
 class Interpreter:
     """Generate Python source from the AST."""
 

@@ -1,0 +1,14 @@
+# WELCOME TO ORIGIN!
+
+# This is a comment
+
+# This is how you print in Origin!
+
+print "Hello World!"
+
+# This is how input is taken, 
+# and how data is stored in variables
+
+let user:str = input "What is your name? "
+
+print "Hello " + user + "!"

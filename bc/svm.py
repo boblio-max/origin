@@ -2,9 +2,9 @@ import random
 import csv
 import math
 import sys
-from ORIGIN_CODE.classes import *
-from ORIGIN_CODE.bc.byteKey import OpCode
-from ORIGIN_CODE.bc.helpers import OriginClass, OriginInstance, BoundMethod 
+from classes import *
+from bc.byteKey import OpCode
+from bc.helpers import OriginClass, OriginInstance, BoundMethod 
 
 class sVM:
     def __init__(self, bytecode, constants):

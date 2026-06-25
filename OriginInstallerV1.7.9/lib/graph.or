@@ -1,0 +1,55 @@
+def graph_show(name, params2, labelx, labely, colorx, colory, markermap) {
+    py {
+try:
+    import fastplotlib as fpl
+    import numpy as np
+except Exception:
+    print("[SIM] fastplotlib or numpy not available")
+    return
+
+def _rgb_to_rgba(rgb):
+    if not rgb or len(rgb) < 3:
+        return None
+    r = float(rgb[0]) / 255.0
+    g = float(rgb[1]) / 255.0
+    b = float(rgb[2]) / 255.0
+    return (r, g, b, 1.0)
+
+x_rgba = _rgb_to_rgba(colorx)
+y_rgba = _rgb_to_rgba(colory)
+
+fig = fpl.Figure()
+subplot = fig[0, 0]
+
+if name:
+    subplot.title = name
+    subplot.title.font_size = 24
+
+x_title = labelx
+if not x_title and params2 and params2.get("X"):
+    x_title = params2["X"].get("label")
+if x_title:
+    subplot.axes.x_label = x_title
+if x_rgba is not None:
+    subplot.axes.x_label.colors = x_rgba
+
+y_title = labely
+if not y_title and params2 and params2.get("Y"):
+    y_title = params2["Y"].get("label")
+if y_title:
+    subplot.axes.y_label = y_title
+if y_rgba is not None:
+    subplot.axes.y_label.colors = y_rgba
+
+line_color = y_rgba or x_rgba
+
+xs = np.linspace(0, 10, 100)
+ys = np.sin(xs)
+if line_color:
+    subplot.add_line(data=np.column_stack([xs, ys]), colors=line_color)
+else:
+    subplot.add_line(data=np.column_stack([xs, ys]), colors="white")
+
+fig.show()
+    }
+}

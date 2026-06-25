@@ -1,0 +1,45 @@
+class calc() {
+    def add(a, b) {
+        py { return a + b }
+    }
+    def sub(a, b) {
+        py { return a - b }
+    }
+    def mul(a, b) {
+        py { return a * b }
+    }
+    def div(a, b) {
+        py { return a / b }
+    }
+    def pow(a, b) {
+        py { return a ** b }
+    }
+    def sqrt(a) {
+        py { return __import__('math').sqrt(a) }
+    }
+    def abs(a) {
+        py { return __import__('math').fabs(a) }
+    }
+    def floor(a) {
+        py { return __import__('math').floor(a) }
+    }
+    def ceil(a) {
+        py { return __import__('math').ceil(a) }
+    }
+    def rand(a, b) {
+        py { return __import__('random').randint(a, b) }
+    }
+    def pi() {
+        py { return __import__('math').pi }
+    }
+    def sin(a) {
+        py { return __import__('math').sin(a) }
+    }
+    def cos(a) {
+        py { return __import__('math').cos(a) }
+    }
+    def tan(a) {
+        py { return __import__('math').tan(a) }
+    }
+}
+calc = calc()

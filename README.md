@@ -8,6 +8,8 @@
 
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
+> **June 2026 re-issue:** The standalone `origin.exe` has been rebuilt from the v1.7.5 reference sources with the flat-layout imports normalized, and `secure_install.ps1` now hard-codes the SHA-256 of the new binary. The language surface is unchanged from the prior v1.7.9 release. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
+
 ---
 
 ## Key Features
