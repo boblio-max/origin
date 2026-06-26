@@ -1,0 +1,80 @@
+# -*- mode: python ; coding: utf-8 -*-
+# Origin Programming Language - macOS PyInstaller spec
+#
+# Build with:
+#     pip install -r requirements.txt
+#     pyinstaller origin.spec.macos
+#
+# Produces dist/origin (Mach-O universal binary when built on
+# macOS with both arm64 and x86_64 toolchains).
+
+import sys
+from PyInstaller.utils.hooks import collect_submodules
+
+block_cipher = None
+
+# adafruit-circuitpython-servokit / board are optional at runtime; the
+# interpreter already catches ImportError and falls back to [SIM] mode.
+# We still register them as hidden imports so PyInstaller detects them.
+hidden = [
+    'lexer',
+    'parser',
+    'interpreter',
+    'errors',
+    'classes',
+    'adafruit_servokit',
+    'board',
+    'busio',
+]
+hidden += collect_submodules('adafruit_servokit')
+
+a = Analysis(
+    ['runner.py'],
+    pathex=['.'],
+    binaries=[],
+    datas=[('lib', 'lib')],
+    hiddenimports=hidden,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=['RPi', 'RPi.GPIO'],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='origin',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='Origin.app',
+        icon=None,
+        bundle_identifier='org.originlang.origin',
+        info_plist={
+            'CFBundleName': 'Origin',
+            'CFBundleDisplayName': 'Origin Programming Language',
+            'CFBundleShortVersionString': '1.7.9',
+            'CFBundleVersion': '1.7.9',
+            'NSHighResolutionCapable': True,
+            'LSEnvironment': {'PATH': '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'},
+        },
+    )

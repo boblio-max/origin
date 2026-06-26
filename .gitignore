@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.spec.bak
+
+# PyInstaller
+build/
+dist/
+*.onefile-build/
+
+# Virtualenvs and tooling
+.venv/
+venv/
+.env
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local installer artifacts
+stage/
+OriginInstaller-*.zip
