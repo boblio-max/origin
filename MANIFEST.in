@@ -1,0 +1,3 @@
+include origin/lib/*.or
+include origin/lib/*.py
+include README.md
