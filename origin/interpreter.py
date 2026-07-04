@@ -79,6 +79,9 @@ class Interpreter:
             return node.code
 
         elif isinstance(node, AssignNode):
+            if isinstance(node.value, ImuNode):
+                return f"from {node.value.name} import {node.value.name}\n{node.name} = {self.generate(node.value)}"
+
             if node.name in self.CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant '{node.name}'")
 
@@ -256,8 +259,15 @@ class Interpreter:
         elif isinstance(node, IndexAssignNode):
             return f"{self.generate(node.collection)}[{self.generate(node.index)}] = {self.generate(node.value)}"
 
+        elif isinstance(node, ImuNode):
+            return f"{node.name}({node.address})"
+
+        elif isinstance(node, ImuFromNode):
+            return f"{node.name}.get_{node.value}()"
+
         elif isinstance(node, ParallelNode):
-            code = "import threading\n"
+            code = ""
+            code += "import threading\n"
             code += "_threads = []\n"
             if node.threads > 0:
                 code += "def _parallel_block():\n"

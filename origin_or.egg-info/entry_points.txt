@@ -1,0 +1,2 @@
+[console_scripts]
+origin = origin.__main__:main

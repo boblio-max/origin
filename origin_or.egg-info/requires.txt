@@ -1,0 +1,8 @@
+
+[build]
+pyinstaller
+
+[pi]
+RPi.GPIO
+adafruit-circuitpython-servokit
+smbus2

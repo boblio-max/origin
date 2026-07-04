@@ -509,6 +509,24 @@ class AppendNode(ASTNode):
     def __repr__(self):
         return f"WriteNode({self.file}, {self.contents})"
 
+class ImuNode(ASTNode):
+    """IMU data"""
+    def __init__(self, name, address):
+        super().__init__()
+        self.name = name
+        self.address = address
+    def __repr__(self):
+        return f"ImuNode({self.name}, {self.address})"
+
+class ImuFromNode(ASTNode):
+    """IMU data"""
+    def __init__(self, value, name):
+        super().__init__()
+        self.value = value
+        self.name = name
+    def __repr__(self):
+        return f"ImuFromNode({self.value}, {self.name})"
+
 # MAKE INTO LIBRARY
 class GraphNode(ASTNode):
     """Graphing Data"""

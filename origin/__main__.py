@@ -6,7 +6,7 @@ from .runner import run_origin
 
 def main():
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.10")
+        print("Origin Programming Language v1.7.11")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)

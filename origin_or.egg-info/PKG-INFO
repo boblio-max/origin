@@ -1,3 +1,31 @@
+Metadata-Version: 2.4
+Name: origin-or
+Version: 1.7.11
+Summary: The Origin programming language — compiled bytecode VM for Raspberry Pi
+Author: Nikhil Mahankali
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Software Development :: Interpreters
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Provides-Extra: pi
+Requires-Dist: RPi.GPIO; extra == "pi"
+Requires-Dist: adafruit-circuitpython-servokit; extra == "pi"
+Requires-Dist: smbus2; extra == "pi"
+Provides-Extra: build
+Requires-Dist: pyinstaller; extra == "build"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
+
 # Origin Programming Language · v1.7.11
 
 [![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)

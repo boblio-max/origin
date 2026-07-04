@@ -102,6 +102,15 @@ class Parser:
                     i = j
             return FormattedStringNode(parts)
         
+        if tok.type == "IMU":
+            self.eat("IMU")
+            try:
+                self.eat("KEYWORD")
+                address = self.eat("HEX").value
+                return ImuNode(tok.value, address)
+            except SyntaxError:
+                return ImuNode(tok.value, "0x68")
+
         if tok.type == "KEYWORD":
             if tok.value == "range":
                 self.eat("KEYWORD")          
@@ -112,6 +121,12 @@ class Parser:
                 self.eat("SYMBOL")          
                 return RangeNode(start, end)
             
+            if tok.value in ("accel", "gyro", "temp"):
+                value = self.eat("KEYWORD").value
+                self.eat("KEYWORD")
+                name = self.eat("IDENT").value
+                return ImuFromNode(value, name)
+
             if tok.value == "write":
                 self.eat("KEYWORD")
                 file_name = self.eat("STRING").value 
@@ -445,7 +460,7 @@ class Parser:
         if tok.type == "KEYWORD":
             if tok.value == "let":
                 self.eat("KEYWORD")
-                name = self.eat("IDENT").value
+                name = self.eat(self.current_token().type).value
                 _type = None
                 assigned = True
                 if self.current_token().value == ":":
@@ -476,7 +491,7 @@ class Parser:
                 
             if tok.value == "const":
                 self.eat("KEYWORD")
-                name = self.eat("IDENT").value
+                name = self.eat(self.current_token().type).value
                 _type = None
                 assigned = True
                 if self.current_token().value == ":":
