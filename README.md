@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/badge/Version-v1.7.11-blue?style=flat-square)](https://docs-origin.onrender.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
 
-**Origin** is a Python-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
+**Origin** is a Python/Java-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
