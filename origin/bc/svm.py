@@ -311,13 +311,13 @@ class sVM:
                 if isinstance(func, int):
                     # It's a bytecode function address (jump to it)
                     # Save return address AND current variable scope
-                    self.call_stack.append((self.pc, self.variables.copy()))
-                    self.variables = {}
+                    self.call_stack.append((self.pc, self.variables))
+                    self.variables = self.variables.copy()
                     self.pc = func 
                 elif isinstance(func, BoundMethod):
                     self.stack.insert(len(self.stack) - num_args, func.instance)
-                    self.call_stack.append((self.pc, self.variables.copy()))
-                    self.variables = {}
+                    self.call_stack.append((self.pc, self.variables))
+                    self.variables = self.variables.copy()
                     self.pc = func.func_pc
                 elif isinstance(func, OriginClass):
                     instance = OriginInstance(func)
@@ -342,6 +342,9 @@ class sVM:
                 if self.call_stack:
                     ret_pc, saved_vars = self.call_stack.pop()
                     self.pc = ret_pc
+                    for k, v in self.variables.items():
+                        if k in saved_vars:
+                            saved_vars[k] = v
                     self.variables = saved_vars
                 else:
                     break # No more calls on stack, end execution
@@ -460,7 +463,13 @@ class sVM:
 
             elif opcode == OpCode.EXEC_PY:
                 code = self.stack.pop()
-                exec(code)
+                self.variables['__builtins__'] = __builtins__
+                self.variables['__file__'] = os.path.abspath(__file__)
+                try:
+                    exec(code, self.variables)
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
 
             elif opcode == OpCode.HALT:
                 break

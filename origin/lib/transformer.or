@@ -1,3 +1,8 @@
+let _Transformer = none
+let _Lora = none
+let _tfr = none
+let _lora_cfg = none
+
 py {
     import sys, os
     _lib_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ORIGIN_CODE', 'lib')
@@ -9,11 +14,8 @@ py {
     from lora import lora as _Lora
 }
 
-let _tfr = none
-let _lora_cfg = none
-
 def init_transformer(data_path, model_name, output_dir) {
-    let _tfr = _Transformer()
+    _tfr = _Transformer()
     _tfr.init(data_path, model_name, output_dir)
 }
 
@@ -40,7 +42,7 @@ def load_model() {
 def lora(r, lora_alpha, target_modules, lora_dropout, bias, task_type) {
     let lo = _Lora()
     lo.init(r, lora_alpha, target_modules, lora_dropout, bias, task_type)
-    let _lora_cfg = lo.lora_config
+    _lora_cfg = lo.lora_config
 }
 
 def merge_model() {

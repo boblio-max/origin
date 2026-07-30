@@ -2,7 +2,10 @@ import random
 import csv
 import math
 import sys
+from pathlib import Path
 from ..classes import *
+from ..lexer import lex
+from ..parser import Parser
 from .byte_key import OpCode
 
 class Compiler:
@@ -474,13 +477,26 @@ class Compiler:
             self.patch_jmp(end_idx, len(self.bytecode))
 
         elif isinstance(node, ImportNode):
-            idx = self.add_constant(node.name)
-            self.emit(OpCode.PUSH_CONST, idx)
-            builtins_idx = self.add_constant(__import__)
-            self.emit(OpCode.PUSH_CONST, builtins_idx)
-            self.emit(OpCode.CALL, 1)
-            var_idx = self.add_constant(node.name)
-            self.emit(OpCode.STORE_VAR, var_idx)
+            lib_dir = Path(__file__).resolve().parent.parent / "lib"
+            or_path = lib_dir / f"{node.name}.or"
+            if or_path.exists():
+                lib_path = str(lib_dir).replace("\\", "\\\\")
+                preamble = PyNode(f"import sys as _sys\nif r'{lib_path}' not in _sys.path:\n    _sys.path.insert(0, r'{lib_path}')")
+                self.compile(preamble)
+                with open(or_path, encoding="utf-8") as f:
+                    code = [line.rstrip("\n") for line in f]
+                tokens = lex(code)
+                ast = Parser(tokens).program()
+                for stmt in ast.statements:
+                    self.compile(stmt)
+            else:
+                idx = self.add_constant(node.name)
+                self.emit(OpCode.PUSH_CONST, idx)
+                builtins_idx = self.add_constant(__import__)
+                self.emit(OpCode.PUSH_CONST, builtins_idx)
+                self.emit(OpCode.CALL, 1)
+                var_idx = self.add_constant(node.name)
+                self.emit(OpCode.STORE_VAR, var_idx)
 
         elif isinstance(node, ImportFromNode):
             mod = __import__(node.lib, fromlist=[node.name])
