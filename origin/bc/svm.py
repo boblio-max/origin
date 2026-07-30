@@ -465,6 +465,25 @@ class sVM:
             elif opcode == OpCode.HALT:
                 break
 
+            elif opcode == OpCode.MOVE:
+                dest_idx = self.bytecode[self.pc]
+                self.pc += 1
+                src_idx = self.bytecode[self.pc]
+                self.pc += 1
+                dest_name = self.constants[dest_idx]
+                src_name = self.constants[src_idx]
+                self.variables[dest_name] = self.variables.get(src_name)
+
+            elif opcode == OpCode.COPY:
+                dest_idx = self.bytecode[self.pc]
+                self.pc += 1
+                src_idx = self.bytecode[self.pc]
+                self.pc += 1
+                dest_name = self.constants[dest_idx]
+                src_name = self.constants[src_idx]
+                if src_name in self.variables:
+                    self.variables[dest_name] = self.variables[src_name]
+
 
     def _run_from(self, pc):
         """Run bytecode starting from a given program counter (for parallel threads)."""
@@ -505,5 +524,5 @@ class sVM:
             pass  # Other opcodes require full context; run() handles them
 
 
-# Backwards-compatible alias used by runnerByte.py
+# Backwards-compatible alias used by ORIGIN_CODE/runnerByte.py
 VM = sVM

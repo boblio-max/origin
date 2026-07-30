@@ -16,6 +16,7 @@ TOKEN_REGEX = [
     (r"#.*",                 None),       # Ignore comments
     (r"\n",                  "NEWLINE"),  # Newline characters
     (r"0x[0-9a-fA-F]+",      "HEX"),      # Hexadecimal numbers
+    (r"\d+\.?\d*[eE][+-]?\d+", "FLOAT"),  # Scientific notation (e.g. 5e-5, 1.5E10)
     (r"\d+\.\d+",            "FLOAT"),    # Floating-point numbers
     (r"\d+",                 "INT"),      # Integer numbers
     (r"[fF]\".*?\"|[fF]'.*?'", "FSTRING"), # Formatted f-strings
@@ -29,7 +30,7 @@ TOKEN_REGEX = [
     (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"), # Arithmetic and bitwise operators
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
-    (r"\b(none|if|elif|else|for|to|while|write|with|return|py|int|read|len|str|sqrt|float|let|rand_num|const|in|graph|print|true|exec|false|address|accel|gyro|temp|break|input|continue|def|func|import|from|class|try|call|except|set|pass|as|bool|parallel|range|self)\b", "KEYWORD"), # Reserved keywords
+    (r"\b(none|if|elif|else|for|to|while|write|with|return|py|int|read|len|str|sqrt|float|let|rand_num|const|in|graph|print|true|exec|false|address|accel|gyro|temp|break|input|continue|def|func|import|from|class|try|call|except|set|ifinstance|pass|as|bool|parallel|range|self)\b", "KEYWORD"), # Reserved keywords
     (r"\b(mpu6050|mpu9250|mpu6500|mpu9255|mpu6000|mpu9150|mpu9256|mpu9257|mpu9258|mpu9259)\b", "IMU"), # IMU keywords
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"), # Identifiers
 ]

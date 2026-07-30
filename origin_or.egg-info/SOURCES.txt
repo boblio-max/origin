@@ -18,6 +18,9 @@ origin/bc/to_byte.py
 origin/lib/__init__.py
 origin/lib/calc.or
 origin/lib/graph.or
+origin/lib/lora.py
+origin/lib/transformer.or
+origin/lib/transformer.py
 origin_or.egg-info/PKG-INFO
 origin_or.egg-info/SOURCES.txt
 origin_or.egg-info/dependency_links.txt

@@ -591,6 +591,16 @@ class Compiler:
             idx = self.add_constant(node.code)
             self.emit(OpCode.PUSH_CONST, idx)
             self.emit(OpCode.EXEC_PY)
+            
+        elif isinstance(node, MoveNode):
+            src_name_idx = self.add_constant(node.src)
+            dst_name_idx = self.add_constant(node.dst)
+            self.emit(OpCode.MOVE, dst_name_idx, src_name_idx)
+            
+        elif isinstance(node, CopyNode):
+            src_name_idx = self.add_constant(node.src)
+            dst_name_idx = self.add_constant(node.dst)
+            self.emit(OpCode.COPY, dst_name_idx, src_name_idx)
 
         elif isinstance(node, GraphNode):
             idx = self.add_constant((node.name, node.params1, node.params2, node.labelx, node.labely, node.colorx, node.colory, node.marker))

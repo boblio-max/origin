@@ -178,6 +178,10 @@ class Parser:
             if tok.value == "false":
                 self.eat("KEYWORD")
                 return BoolNode(False)
+
+            if tok.value == "none":
+                self.eat("KEYWORD")
+                return NoneNode()
                 
             if tok.value == "len":
                 self.eat("KEYWORD") 
@@ -473,7 +477,10 @@ class Parser:
                 self.eat("ASSIGN")
                 value = self.special_expr()
                 if not assigned:
-                    _type = type(value).__name__
+                    if isinstance(value, NoneNode):
+                        _type = "none"
+                    else:
+                        _type = type(value).__name__
                 return AssignNode(name, value, _type)
 
             if tok.value == "self":
@@ -942,7 +949,12 @@ class Parser:
                                 raw += " " + token_str
                         else:
                             raw += token_str
-                return PyNode(textwrap.dedent(raw).strip("\n"))
+                lines = raw.split("\n")
+                non_empty = [l for l in lines if l.strip()]
+                if non_empty:
+                    min_indent = min(len(l) - len(l.lstrip()) for l in non_empty)
+                    lines = [l[min_indent:] if len(l) >= min_indent and l.strip() else l for l in lines]
+                return PyNode("\n".join(lines).strip("\n"))
 
         return self.special_expr()
 

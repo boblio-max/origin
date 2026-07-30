@@ -1,0 +1,60 @@
+py {
+    import sys, os
+    _lib_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ORIGIN_CODE', 'lib')
+    if not os.path.isdir(_lib_dir):
+        _lib_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+    if _lib_dir not in sys.path:
+        sys.path.insert(0, _lib_dir)
+    from transformer import transformer as _Transformer
+    from lora import lora as _Lora
+}
+
+let _tfr = none
+let _lora_cfg = none
+
+def init_transformer(data_path, model_name, output_dir) {
+    let _tfr = _Transformer()
+    _tfr.init(data_path, model_name, output_dir)
+}
+
+def tf_config(max_seq, batch_size, epoch, lr) {
+    _tfr.config(max_seq, batch_size, epoch, lr)
+}
+
+def load_data() {
+    _tfr.load_data()
+}
+
+def split_data() {
+    _tfr.split_data()
+}
+
+def load_tokens() {
+    _tfr.load_tokens()
+}
+
+def load_model() {
+    _tfr.load_model()
+}
+
+def lora(r, lora_alpha, target_modules, lora_dropout, bias, task_type) {
+    let lo = _Lora()
+    lo.init(r, lora_alpha, target_modules, lora_dropout, bias, task_type)
+    let _lora_cfg = lo.lora_config
+}
+
+def merge_model() {
+    _tfr.merge_model(_lora_cfg)
+}
+
+def init_training_args(gradient_accumulation, log_dir, log_steps, save_steps, save_t_limit, load_best_model) {
+    _tfr.training_args(gradient_accumulation, log_dir, log_steps, save_steps, save_t_limit, load_best_model)
+}
+
+def init_trainer() {
+    _tfr.init_trainer()
+}
+
+def train() {
+    _tfr.train()
+}

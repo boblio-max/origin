@@ -29,6 +29,46 @@ class Interpreter:
         self.original_imports = {}
         # Track whether we're generating code inside a class body
         self._class_depth = 0
+        self._module_vars = set()
+
+    def _collect_module_vars(self, node):
+        """First pass: collect all variable names declared at module level."""
+        for stmt in node.statements:
+            if isinstance(stmt, AssignNode) and not isinstance(stmt.value, FuncNode):
+                self._module_vars.add(stmt.name)
+
+    def _get_global_vars_in_func(self, node):
+        """Find variables inside a function body that shadow module-level vars."""
+        if node is None:
+            return set()
+        result = set()
+        if isinstance(node, BlockNode):
+            for stmt in node.statements:
+                result |= self._get_global_vars_in_func(stmt)
+        elif isinstance(node, AssignNode):
+            if node.name in self._module_vars:
+                result.add(node.name)
+        elif isinstance(node, FuncNode):
+            result |= self._get_global_vars_in_func(node.body)
+        elif isinstance(node, IfNode):
+            result |= self._get_global_vars_in_func(node.then_body)
+            for elif_n in node.elif_nodes:
+                result |= self._get_global_vars_in_func(elif_n.then_body)
+            if node.else_body:
+                result |= self._get_global_vars_in_func(node.else_body)
+        elif isinstance(node, WhileNode):
+            result |= self._get_global_vars_in_func(node.body)
+        elif isinstance(node, ForNode):
+            result |= self._get_global_vars_in_func(node.body)
+        elif isinstance(node, TryNode):
+            result |= self._get_global_vars_in_func(node.try_body)
+            for exc in node.except_body:
+                result |= self._get_global_vars_in_func(exc)
+            if node.else_body:
+                result |= self._get_global_vars_in_func(node.else_body)
+        elif isinstance(node, ParallelNode):
+            result |= self._get_global_vars_in_func(node.body)
+        return result
     def get_type(self, node):
         """Infer the type of an AST node."""
         if hasattr(node, 'type') and node.type is not None:
@@ -55,6 +95,7 @@ class Interpreter:
             line_marker = f"globals()['_origin_runtime_line'] = {node.line}\n"
 
         if isinstance(node, ProgramNode):
+            self._collect_module_vars(node)
             return "\n".join(self.generate(stmt) for stmt in node.statements)
 
         elif isinstance(node, BlockNode):
@@ -179,6 +220,10 @@ class Interpreter:
                 params = "self" if not params else "self, " + params
             code = f"def {node.name}({params}):\n"
             body_code = self.generate(node.body) or "pass"
+            global_vars = self._get_global_vars_in_func(node.body)
+            if global_vars:
+                global_line = "global " + ", ".join(sorted(global_vars)) + "\n"
+                body_code = global_line + body_code
             code += self.indent_block(body_code)
             return code
 
@@ -397,12 +442,14 @@ class Interpreter:
                 return f"open({repr(node.file_name)}).read({node.count})"
         
         elif isinstance(node, WriteNode):
-            content = self.generate(node.content)
-            return f"open({repr(node.file_name)}, 'w').write({content})"
+            fname = node.file[1:-1] if node.file[:1] in ('"', "'") else node.file
+            content = self.generate(node.contents)
+            return f"open({repr(fname)}, 'w').write({content})"
         
         elif isinstance(node, AppendNode):
-            content = self.generate(node.content)
-            return f"open({repr(node.file_name)}, 'a').write({content})"
+            fname = node.file[1:-1] if node.file[:1] in ('"', "'") else node.file
+            content = self.generate(node.contents)
+            return f"open({repr(fname)}, 'a').write({content})"
         
         elif isinstance(node, LenNode):
             return f"len({self.generate(node.value)})"
