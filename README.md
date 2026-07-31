@@ -1,14 +1,14 @@
-# Origin Programming Language · v1.7.13
+# Origin Programming Language · v1.7.14
 
 [![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)
-[![Version](https://img.shields.io/badge/Version-v1.7.13-blue?style=flat-square)](https://docs-origin.onrender.com)
+[![Version](https://img.shields.io/badge/Version-v1.7.14-blue?style=flat-square)](https://docs-origin.onrender.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
 
 **Origin** is a Python/Java-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
-> **June 2026 re-issue:** The standalone `origin.exe` has been rebuilt from the v1.7.5 reference sources with the flat-layout imports normalized, and `secure_install.ps1` now hard-codes the SHA-256 of the new binary. The language surface is unchanged from the prior v1.7.13 release. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
+> **June 2026 re-issue:** The standalone `origin.exe` has been rebuilt from the v1.7.5 reference sources with the flat-layout imports normalized, and `secure_install.ps1` now hard-codes the SHA-256 of the new binary. The language surface is unchanged from the prior v1.7.14 release. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
 
 ---
 
@@ -30,7 +30,7 @@
 ### Standalone (Recommended)
 You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
 
-1. **Download**: [Origin v1.7.13 Stable](https://docs-origin.onrender.com/download.html)
+1. **Download**: [Origin v1.7.14 Stable](https://docs-origin.onrender.com/download.html)
 2. **Install**: Run `secure_install.ps1` with PowerShell.
 3. **Usage**: Open a new terminal and type `origin`.
 

@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="origin-or",
-    version="1.7.13",
-    description="The Origin programming language — compiled bytecode VM for Raspberry Pi",
+    version="1.7.14",
+    description="The Origin programming language",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Nikhil Mahankali",
