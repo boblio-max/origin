@@ -233,23 +233,25 @@ class TryNode(ASTNode):
 
 class FuncNode(ASTNode):
     """Function definition."""
-    def __init__(self, name, params, body):
+    def __init__(self, name, params, body, param_types=None):
         super().__init__()
         self.name = name
         self.params = params
         self.body = body
+        self.param_types = param_types or {}
     def __repr__(self):
-        return f"FuncNode({self.name}, {self.params}, {self.body})"
+        return f"FuncNode({self.name}, {self.params}, {self.param_types}, {self.body})"
 
 class ClassNode(ASTNode):
     """Class definition."""
-    def __init__(self, name, fields, body):
+    def __init__(self, name, fields, body, field_types=None):
         super().__init__()
         self.name = name
         self.fields = fields
         self.body = body
+        self.field_types = field_types or {}
     def __repr__(self):
-        return f"ClassNode({self.name}, {self.fields}, {self.body})"
+        return f"ClassNode({self.name}, {self.fields}, {self.field_types}, {self.body})"
 
 class CallNode(ASTNode):
     """Function or method call."""
@@ -394,12 +396,13 @@ class CastNode(ASTNode):
 
 class RangeNode(ASTNode):
     """Numeric range generator."""
-    def __init__(self, start, end):
+    def __init__(self, start, end, step=None):
         super().__init__()
         self.start = start
         self.end = end
+        self.step = step
     def __repr__(self):
-        return f"RangeNode({self.start}, {self.end})"
+        return f"RangeNode({self.start}, {self.end},{self.step})"
 
 class ParallelNode(ASTNode):
     """Parallel processing context."""
@@ -517,7 +520,7 @@ class ImuNode(ASTNode):
         self.address = address
     def __repr__(self):
         return f"ImuNode({self.name}, {self.address})"
-
+    
 class ImuFromNode(ASTNode):
     """IMU data"""
     def __init__(self, value, name):
@@ -526,7 +529,6 @@ class ImuFromNode(ASTNode):
         self.name = name
     def __repr__(self):
         return f"ImuFromNode({self.value}, {self.name})"
-
 # MAKE INTO LIBRARY
 class GraphNode(ASTNode):
     """Graphing Data"""
@@ -541,3 +543,21 @@ class GraphNode(ASTNode):
         self.marker = marker
     def __repr__(self):
         return f"GraphNode({self.name}, {self.params1}, {self.params2}, {self.labelx}, {self.labely}, {self.colorx},{self.colory}, {self.marker})"
+
+class CopyNode(ASTNode):
+    """Copy operation (copy variable value)."""
+    def __init__(self, src, dst):
+        super().__init__()
+        self.src = src
+        self.dst = dst
+    def __repr__(self):
+        return f"CopyNode({self.src}, {self.dst})"
+
+class MoveNode(ASTNode):
+    """Move operation (move variable value, clear source)."""
+    def __init__(self, src, dst):
+        super().__init__()
+        self.src = src
+        self.dst = dst
+    def __repr__(self):
+        return f"MoveNode({self.src}, {self.dst})"

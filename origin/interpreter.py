@@ -155,9 +155,13 @@ class Interpreter:
             if node.name in self.CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant '{node.name}'")
             val_str = self.generate(node.value)
-            val_type = self.get_type(self.generate(node.value))
+            val_type = self.get_type(node.value)
             if node.type and val_type and node.type != val_type:
                 raise TypeError(f"Type Mismatch: {node.name} is {node.type} but got {val_type}")
+            if node.type:
+                self.variable_types[node.name] = node.type
+            elif val_type:
+                self.variable_types[node.name] = val_type
             self.CONST_VARS[node.name] = val_str
             return f"{node.name} = {val_str}"
 
@@ -173,6 +177,8 @@ class Interpreter:
             return f"({self.generate(node.left)} {node.op} {self.generate(node.right)})"
 
         elif isinstance(node, UnaryOpNode):
+            if node.op in ("not", "!"):
+                return f"(not {self.generate(node.node)})"
             return f"({node.op}{self.generate(node.node)})"
 
         elif isinstance(node, LogicOpNode):
@@ -214,9 +220,16 @@ class Interpreter:
             return code
 
         elif isinstance(node, FuncNode):
-            params = ", ".join(node.params) if node.params else ""
-            # If inside a class, ensure 'self' is the first parameter
-            if getattr(self, "_class_depth", 0) > 0:
+            params = []
+            for p in node.params:
+                ptype = (node.param_types or {}).get(p)
+                if ptype in ("int", "float", "str", "bool"):
+                    params.append(f"{p}: {ptype}")
+                else:
+                    params.append(p)
+            params = ", ".join(params) if params else ""
+            # If inside a class, ensure 'self' is the first parameter (unless already declared)
+            if getattr(self, "_class_depth", 0) > 0 and node.params and node.params[0] != "self":
                 params = "self" if not params else "self, " + params
             code = f"def {node.name}({params}):\n"
             body_code = self.generate(node.body) or "pass"
@@ -228,8 +241,15 @@ class Interpreter:
             return code
 
         elif isinstance(node, ClassNode):
-            # Make fields optional by defaulting to None
-            params = ", ".join(f"{f}=None" for f in node.fields)
+            # Make fields optional by defaulting to None, with type annotations when given
+            params = []
+            for f in node.fields:
+                ftype = (node.field_types or {}).get(f)
+                if ftype in ("int", "float", "str", "bool"):
+                    params.append(f"{f}: {ftype} = None")
+                else:
+                    params.append(f"{f}=None")
+            params = ", ".join(params)
             code = f"class {node.name}:\n"
             # Body of __init__ must be indented further (8 spaces total)
             init_body = "\n".join(f"        self.{f} = {f}" for f in node.fields) or "        pass"
@@ -306,10 +326,10 @@ class Interpreter:
 
         elif isinstance(node, ImuNode):
             return f"{node.name}({node.address})"
-
+        
         elif isinstance(node, ImuFromNode):
             return f"{node.name}.get_{node.value}()"
-
+        
         elif isinstance(node, ParallelNode):
             code = ""
             code += "import threading\n"
@@ -433,6 +453,8 @@ class Interpreter:
             return f"_execute_{node.namespace}_{node.method}({args})"
 
         elif isinstance(node, RangeNode):
+            if node.step is not None:
+                return f"range({self.generate(node.start)}, {self.generate(node.end)}, {self.generate(node.step)})"
             return f"range({self.generate(node.start)}, {self.generate(node.end)})"
 
         elif isinstance(node, ReadNode):

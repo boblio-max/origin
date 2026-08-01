@@ -72,3 +72,6 @@ class OpCode:
     PARALLEL_START=0x47
     PARALLEL_END = 0x48
     EXEC_PY      = 0x49
+    MOVE         = 0x4A
+    COPY         = 0x4B
+    SWAP         = 0x4C

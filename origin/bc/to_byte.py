@@ -16,6 +16,7 @@ class Compiler:
         self.loop_ends = []   # Stack of placeholder indices for break
         self._for_tmp_counter = 0
         self.variable_types = {}
+        self.const_names = set()
         self.functions = {}
         self.unresolved_calls = []
         self.builtins = {
@@ -62,8 +63,9 @@ class Compiler:
             self.bytecode.append(operand)
 
     def add_constant(self, value):
-        if value in self.constants:
-            return self.constants.index(value)
+        for i, c in enumerate(self.constants):
+            if type(c) is type(value) and c == value:
+                return i
         self.constants.append(value)
         return len(self.constants) - 1
 
@@ -94,18 +96,29 @@ class Compiler:
 
         elif isinstance(node, AssignNode) or isinstance(node, ConstAssignNode):
             value_type = self.get_type(node.value)
-            
-            if isinstance(node, AssignNode):
-                if node.type is not None:
-                    # Declaration with type (let x: int = ...)
-                    if value_type is not None and value_type != node.type:
-                         raise TypeError(f"Type Mismatch: variable '{node.name}' declared as {node.type} but assigned {value_type}")
-                    self.variable_types[node.name] = node.type
-                elif node.name in self.variable_types:
-                    # Re-assignment without type (x = ...)
-                    expected_type = self.variable_types[node.name]
-                    if value_type is not None and value_type != expected_type:
-                        raise TypeError(f"Type Mismatch: variable '{node.name}' is {expected_type} but assigned {value_type}")
+            is_const = isinstance(node, ConstAssignNode)
+
+            if is_const:
+                if node.name in self.const_names:
+                    raise TypeError(f"Type Mismatch: constant '{node.name}' cannot be reassigned")
+                self.const_names.add(node.name)
+            elif node.name in self.const_names:
+                raise TypeError(f"Type Mismatch: constant '{node.name}' cannot be reassigned")
+
+            if node.type is not None:
+                # Declaration with explicit type (let x: int = ...)
+                if value_type is not None and value_type != node.type:
+                     raise TypeError(f"Type Mismatch: variable '{node.name}' declared as {node.type} but assigned {value_type}")
+                self.variable_types[node.name] = node.type
+            elif node.name not in self.variable_types:
+                # Declaration without type annotation: auto-infer from the assigned value
+                inferred = value_type if value_type is not None else "any"
+                self.variable_types[node.name] = inferred
+            else:
+                # Re-assignment without type (x = ...)
+                expected_type = self.variable_types[node.name]
+                if value_type is not None and expected_type not in (None, "any") and value_type != expected_type:
+                    raise TypeError(f"Type Mismatch: variable '{node.name}' is {expected_type} but assigned {value_type}")
 
             self.compile(node.value)
             idx = self.add_constant(node.name)
@@ -248,6 +261,8 @@ class Compiler:
             if isinstance(node.var, VarNode):
                 var_idx = self.add_constant(node.var.name)
                 self.emit(OpCode.STORE_VAR, var_idx)
+                if getattr(node.var, "var_type", None):
+                    self.variable_types[node.var.name] = node.var.var_type
             elif isinstance(node.var, TupleNode) or isinstance(node.var, ListNode):
                 # Store into a temporary, then extract elements into variables
                 tmp_name = f"_for_tmp_{self._for_tmp_counter}"
@@ -314,11 +329,12 @@ class Compiler:
         elif isinstance(node, RangeNode):
             self.compile(node.start)
             self.compile(node.end)
+            if node.step is not None:
+                self.compile(node.step)
             # We don't have a RANGE opcode, so we'll just use a CALL to Python's range
-            # Or we can just add a RANGE OpCode. Let's use a Call for now to keep it simple.
             idx = self.add_constant(range)
             self.emit(OpCode.PUSH_CONST, idx)
-            self.emit(OpCode.CALL, 2)
+            self.emit(OpCode.CALL, 3 if node.step is not None else 2)
 
         elif isinstance(node, LenNode):
             self.compile(node.value)
@@ -343,7 +359,8 @@ class Compiler:
             for param in reversed(node.params):
                 idx = self.add_constant(param)
                 self.emit(OpCode.STORE_VAR, idx)
-            
+            for pname, ptype in (node.param_types or {}).items():
+                self.variable_types[pname] = ptype
             self.compile(node.body)
             idx = self.add_constant(None)
             self.emit(OpCode.PUSH_CONST, idx)
@@ -381,8 +398,13 @@ class Compiler:
                 self.emit(OpCode.CAST_INT)
             elif node.cast_type == "float":
                 self.emit(OpCode.CAST_FLOAT)
+            elif node.cast_type == "bool":
+                # No CAST_BOOL opcode; `not not value` yields a Python bool.
+                self.emit(OpCode.NOT)
+                self.emit(OpCode.NOT)
             else:
-                raise RuntimeError(f"Unsupported cast target: {node.cast_type}")
+                # Non-builtin/class type names in annotations are advisory in the VM.
+                pass
 
         elif isinstance(node, ReturnNode):
             self.compile(node.value)

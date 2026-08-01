@@ -10,9 +10,18 @@ import os
 
 from .lexer import lex
 from .parser import Parser
-from .bc.to_byte import Compiler
-from .bc.svm import sVM
 from .errors import report_error, translate_python_error
+
+try:
+    from .bc.to_byte import Compiler
+    from .bc.svm import sVM
+    _HAVE_BC = True
+except ImportError:
+    # Standalone builds (origin.exe) ship without the bytecode VM package;
+    # fall back to the interpreter backend.
+    Compiler = None
+    sVM = None
+    _HAVE_BC = False
 
 
 def run_origin(file_path, mode="vm"):
@@ -36,7 +45,7 @@ def run_origin(file_path, mode="vm"):
             parser = Parser(tokens)
             ast = parser.program()
 
-            if mode == "vm":
+            if mode == "vm" and _HAVE_BC:
                 compiler = Compiler()
                 compiler.compile(ast)
                 sVM(compiler.bytecode, compiler.constants).run()
@@ -81,7 +90,7 @@ def run_origin(file_path, mode="vm"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.14")
+        print("Origin Programming Language v1.7.15")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)

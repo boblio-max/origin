@@ -7,6 +7,7 @@ constructs an Abstract Syntax Tree (AST) comprised of node classes from
 ``classes.py``.
 """
 
+import sys
 import textwrap
 from .lexer import lex, Token
 from .classes import *
@@ -41,6 +42,45 @@ class Parser:
             self.pos += 1
             return tok
         raise SyntaxError(f"Expected {type_}, got {tok.type} ({tok.value}) at {tok.line}:{tok.col}")
+
+    def _expect_symbol(self, value):
+        """Consume a symbol token with the given value, else raise a syntax error."""
+        tok = self.current_token()
+        if tok.type == "SYMBOL" and tok.value == value:
+            self.pos += 1
+            return tok
+        raise SyntaxError(
+            f"Expected '{value}' but got {tok.type} ({tok.value}) at {tok.line}:{tok.col}"
+        )
+
+    def _parse_type_annotation(self, allow_ident=False):
+        """Consume an optional ``:type`` annotation and return the type name, or None.
+
+        With ``allow_ident`` any identifier/keyword is accepted as a type name
+        (for declarations). Without it, only the castable builtin types
+        (int, float, str, bool) are accepted (for argument casts).
+        """
+        if not (self.current_token().type == "SYMBOL" and self.current_token().value == ":"):
+            return None
+        self.eat("SYMBOL")
+        t = self.current_token()
+        if t.type in ("IDENT", "KEYWORD"):
+            if allow_ident or t.value in ("int", "float", "str", "bool"):
+                return self.eat(t.type).value
+        raise SyntaxError(
+            f"Expected a type name after ':' but got {t.type} ({t.value}) at {t.line}:{t.col}"
+        )
+
+    def _cast_or_none(self, node):
+        """Wrap ``node`` in a CastNode if a ``:type`` annotation follows it.
+
+        Only the castable builtin types produce a cast; otherwise the node is
+        returned unchanged.
+        """
+        type_name = self._parse_type_annotation(allow_ident=False)
+        if type_name is not None:
+            return CastNode(type_name, node)
+        return node
 
     def skip_newlines(self):
         """Skip optional newline tokens."""
@@ -105,7 +145,7 @@ class Parser:
         if tok.type == "IMU":
             self.eat("IMU")
             try:
-                self.eat("KEYWORD")
+                self.eat("KEYWORD") # address
                 address = self.eat("HEX").value
                 return ImuNode(tok.value, address)
             except SyntaxError:
@@ -113,20 +153,23 @@ class Parser:
 
         if tok.type == "KEYWORD":
             if tok.value == "range":
-                self.eat("KEYWORD")          
-                self.eat("SYMBOL")      
-                start = self.special_expr()
-                self.eat("SYMBOL")          
-                end = self.special_expr()
-                self.eat("SYMBOL")          
-                return RangeNode(start, end)
+                self.eat("KEYWORD")
+                self._expect_symbol("(")
+                start = self._cast_or_none(self.special_expr())
+                self._expect_symbol(",")
+                end = self._cast_or_none(self.special_expr())
+                step = None
+                if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                    step = self._cast_or_none(self.special_expr())
+                self._expect_symbol(")")
+                return RangeNode(start, end, step)
             
             if tok.value in ("accel", "gyro", "temp"):
                 value = self.eat("KEYWORD").value
-                self.eat("KEYWORD")
+                self.eat("KEYWORD") #from
                 name = self.eat("IDENT").value
                 return ImuFromNode(value, name)
-
             if tok.value == "write":
                 self.eat("KEYWORD")
                 file_name = self.eat("STRING").value 
@@ -157,18 +200,18 @@ class Parser:
             
             if tok.value == "sqrt":
                 self.eat("KEYWORD")
-                self.eat("SYMBOL")  # (
-                value = self.special_expr()
-                self.eat("SYMBOL")  # )
+                self._expect_symbol("(")
+                value = self._cast_or_none(self.special_expr())
+                self._expect_symbol(")")
                 return SqrtNode(value)
                 
             if tok.value == "rand_num":
                 self.eat("KEYWORD")
-                self.eat("SYMBOL")
-                start = self.special_expr()
-                self.eat("SYMBOL")
-                end = self.special_expr()
-                self.eat("SYMBOL")
+                self._expect_symbol("(")
+                start = self._cast_or_none(self.special_expr())
+                self._expect_symbol(",")
+                end = self._cast_or_none(self.special_expr())
+                self._expect_symbol(")")
                 return RandNumNode(start, end)
             
             if tok.value == "true":
@@ -185,9 +228,9 @@ class Parser:
                 
             if tok.value == "len":
                 self.eat("KEYWORD") 
-                self.eat("SYMBOL") 
-                expr_node = self.special_expr() 
-                self.eat("SYMBOL")  
+                self._expect_symbol("(")
+                expr_node = self._cast_or_none(self.special_expr()) 
+                self._expect_symbol(")")
                 return LenNode(expr_node)
             
             if tok.value == "call":
@@ -212,10 +255,10 @@ class Parser:
                         args = []
                         self.skip_newlines()
                         if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
-                            args.append(self.special_expr())
+                            args.append(self._cast_or_none(self.special_expr()))
                             while self.current_token().type == ",":
                                 self.eat("SYMBOL")
-                                args.append(self.special_expr())
+                                args.append(self._cast_or_none(self.special_expr()))
                         self.eat("SYMBOL")
                         node = CallNode(node, args)
                     else:
@@ -276,10 +319,10 @@ class Parser:
                     args = []
                     self.skip_newlines()
                     if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
-                        args.append(self.special_expr())
+                        args.append(self._cast_or_none(self.special_expr()))
                         while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
                             self.eat("SYMBOL")
-                            args.append(self.special_expr())
+                            args.append(self._cast_or_none(self.special_expr()))
                     self.eat("SYMBOL")  # )
                     node = CallNode(node, args)
 
@@ -466,21 +509,19 @@ class Parser:
                 self.eat("KEYWORD")
                 name = self.eat(self.current_token().type).value
                 _type = None
-                assigned = True
                 if self.current_token().value == ":":
                     self.eat("SYMBOL")
                     _type = self.eat(self.current_token().type).value # int, float, etc.
-                # Little suprise
                 else:
-                    assigned = False
-                    
+                    # No type annotation: nudge toward strict typing, but auto-infer
+                    print(
+                        f"[WARNING] Variable '{name}' declared without a type annotation; "
+                        f"the type will be inferred. Tip: use `let {name}: <type> = ...` "
+                        f"for strict typing.",
+                        file=sys.stderr,
+                    )
                 self.eat("ASSIGN")
                 value = self.special_expr()
-                if not assigned:
-                    if isinstance(value, NoneNode):
-                        _type = "none"
-                    else:
-                        _type = type(value).__name__
                 return AssignNode(name, value, _type)
 
             if tok.value == "self":
@@ -500,16 +541,19 @@ class Parser:
                 self.eat("KEYWORD")
                 name = self.eat(self.current_token().type).value
                 _type = None
-                assigned = True
                 if self.current_token().value == ":":
                     self.eat("SYMBOL")
-                    _type = self.eat(self.current_token().type)
+                    _type = self.eat(self.current_token().type).value
                 else:
-                    assigned = False
+                    # No type annotation: nudge toward strict typing, but auto-infer
+                    print(
+                        f"[WARNING] Constant '{name}' declared without a type annotation; "
+                        f"the type will be inferred. Tip: use `const {name}: <type> = ...` "
+                        f"for strict typing.",
+                        file=sys.stderr,
+                    )
                 self.eat("ASSIGN")
                 value = self.special_expr()
-                if not assigned:
-                    _type = type(value).__name__
                 return ConstAssignNode(name, value, _type)
 
             if tok.value == "set":
@@ -754,7 +798,7 @@ class Parser:
             
             if tok.value == "while":
                 self.eat("KEYWORD")
-                condition = self.special_expr()
+                condition = self._cast_or_none(self.special_expr())
                 body = self.block()
                 return WhileNode(condition, body)
 
@@ -807,6 +851,10 @@ class Parser:
                             var = TupleNode(targets)
                         else:
                             var = VarNode(first_name)
+                            var_type = None
+                            if self.current_token().type == "SYMBOL" and self.current_token().value == ":":
+                                var_type = self._parse_type_annotation(allow_ident=True)
+                            var.var_type = var_type
                     else:
                         raise SyntaxError("Expected identifier for for-loop target")
                 self.eat("KEYWORD") # in
@@ -822,18 +870,31 @@ class Parser:
                     raise SyntaxError(f"Expected function name, got {self.current_token()}")
                 self.eat("SYMBOL") # (
                 params = []
+                param_types = {}
                 if self.current_token().value != ")":
                     p_tok = self.current_token()
                     if p_tok.type in ("IDENT", "KEYWORD"):
-                        params.append(self.eat(p_tok.type).value)
+                        pname = self.eat(p_tok.type).value
+                        params.append(pname)
+                        ptype = self._parse_type_annotation(allow_ident=True)
+                        if ptype:
+                            param_types[pname] = ptype
+                    else:
+                        raise SyntaxError("Expected parameter name in function definition")
                     while self.current_token().value == ",":
                         self.eat("SYMBOL")
                         p_tok = self.current_token()
                         if p_tok.type in ("IDENT", "KEYWORD"):
-                            params.append(self.eat(p_tok.type).value)
+                            pname = self.eat(p_tok.type).value
+                            params.append(pname)
+                            ptype = self._parse_type_annotation(allow_ident=True)
+                            if ptype:
+                                param_types[pname] = ptype
+                        else:
+                            raise SyntaxError("Expected parameter name in function definition")
                 self.eat("SYMBOL") # )
                 body = self.block()
-                return FuncNode(name, params, body)
+                return FuncNode(name, params, body, param_types)
 
             if tok.value == "class":
                 self.eat("KEYWORD")
@@ -843,14 +904,23 @@ class Parser:
                     raise SyntaxError(f"Expected class name, got {self.current_token()}")
                 self.eat("SYMBOL") # (
                 fields = []
+                field_types = {}
                 if self.current_token().value != ")":
-                    fields.append(self.eat("IDENT").value)
+                    fname = self.eat("IDENT").value
+                    fields.append(fname)
+                    ftype = self._parse_type_annotation(allow_ident=True)
+                    if ftype:
+                        field_types[fname] = ftype
                     while self.current_token().value == ",":
                         self.eat("SYMBOL")
-                        fields.append(self.eat("IDENT").value)
+                        fname = self.eat("IDENT").value
+                        fields.append(fname)
+                        ftype = self._parse_type_annotation(allow_ident=True)
+                        if ftype:
+                            field_types[fname] = ftype
                 self.eat("SYMBOL") # )
                 body = self.block()
-                return ClassNode(name, fields, body)
+                return ClassNode(name, fields, body, field_types)
 
             if tok.value == "try":
                 self.eat("KEYWORD")
@@ -970,14 +1040,14 @@ class Parser:
 
     def if_stmt(self):
         self.eat("KEYWORD") # if
-        condition = self.special_expr()
+        condition = self._cast_or_none(self.special_expr())
         then_body = self.block()
         elif_nodes = []
         while True:
             self.skip_newlines()
             if self.current_token().value == "elif":
                 self.eat("KEYWORD")
-                cond = self.special_expr()
+                cond = self._cast_or_none(self.special_expr())
                 elif_nodes.append(ElifNode(cond, self.block()))
             else:
                 break
