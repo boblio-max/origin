@@ -10,7 +10,7 @@ import os
 
 from .lexer import lex
 from .parser import Parser
-from .errors import report_error, translate_python_error
+from .errors import ParseError, report_error, translate_python_error
 
 try:
     from .bc.to_byte import Compiler
@@ -67,6 +67,16 @@ def run_origin(file_path, mode="vm"):
                     "_origin_runtime_line": 0,
                 }
                 exec(generated_python, runtime_globals)
+        except ParseError as pe:
+            report_error(
+                file_path=abs_file_path,
+                error_message=pe.message,
+                line_num=pe.line,
+                col_num=pe.col,
+                error_type="Syntax Error",
+                suggestion=pe.suggestion,
+            )
+            sys.exit(1)
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             error_type, friendly_message, suggestion = translate_python_error(exc_type, exc_value)
@@ -90,7 +100,7 @@ def run_origin(file_path, mode="vm"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.16")
+        print("Origin Programming Language v1.7.18")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)

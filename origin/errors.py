@@ -5,13 +5,33 @@ import linecache
 import warnings
 
 
+class ParseError(SyntaxError):
+    """Syntax error raised while lexing/parsing, carrying source position context.
+
+    The ``line`` is 1-based and ``col`` is 0-based (matching lexer.Token).
+    ``lineno``/``offset`` mirror these for compatibility with Python tooling.
+    """
+
+    def __init__(self, message, line=None, col=None, suggestion=None):
+        super().__init__(message)
+        self.message = message
+        self.line = line
+        self.col = col
+        self.suggestion = suggestion
+        if line is not None:
+            self.lineno = line
+        if col is not None:
+            self.offset = col + 1
+
+
 def report_error(
     file_path,
     error_message,
     line_num=None,
     code_context=None,
     error_type="Runtime Error",
-    suggestion=None
+    suggestion=None,
+    col_num=None,
 ):
     print("\n" + "=" * 60)
     print(f" [!] ORIGIN {error_type.upper()}")
@@ -19,7 +39,10 @@ def report_error(
 
     if file_path:
         if line_num:
-            print(f" Location : {file_path} (Line {line_num})")
+            location = f" Location : {file_path} (Line {line_num})"
+            if col_num is not None:
+                location += f", Col {col_num + 1}"
+            print(location)
         else:
             print(f" Location : {file_path}")
     else:
@@ -37,7 +60,8 @@ def report_error(
             print(f" {line_num} | {code_context}")
 
             spacing = len(str(line_num)) + 3
-            print(" " * spacing + "^")
+            caret_col = col_num if col_num is not None else 0
+            print(" " * spacing + " " * caret_col + "^")
 
     if suggestion:
         print("-" * 60)

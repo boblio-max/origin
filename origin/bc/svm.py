@@ -4,10 +4,13 @@ import math
 import sys
 import os
 import threading
+import re
 from pathlib import Path
 # from .classes import *
 from .byte_key import OpCode
 from .helpers import OriginClass, OriginInstance, BoundMethod
+
+_PY_RETURN_RE = re.compile(r'(?m)^\s*return\b')
 
 
 # --- Hardware Runtime Helpers (mirrors interpreter.py) ---
@@ -100,6 +103,11 @@ class sVM:
                 b = self.stack.pop()
                 a = self.stack.pop()
                 self.stack.append(a / b)
+
+            elif opcode == OpCode.FLOOR_DIV:
+                b = self.stack.pop()
+                a = self.stack.pop()
+                self.stack.append(a // b)
 
             elif opcode == OpCode.MOD:
                 b = self.stack.pop()
@@ -198,6 +206,24 @@ class sVM:
             elif opcode == OpCode.SQRT:
                 val = self.stack.pop()
                 self.stack.append(math.sqrt(float(val)))
+
+            elif opcode == OpCode.ABS:
+                val = self.stack.pop()
+                self.stack.append(abs(val))
+
+            elif opcode == OpCode.FLOOR:
+                val = self.stack.pop()
+                self.stack.append(math.floor(float(val)))
+
+            elif opcode == OpCode.CEIL:
+                val = self.stack.pop()
+                self.stack.append(math.ceil(float(val)))
+
+            elif opcode == OpCode.POP:
+                self.stack.pop()
+
+            elif opcode == OpCode.DUP:
+                self.stack.append(self.stack[-1])
 
             elif opcode == OpCode.RAND_NUM:
                 end = int(self.stack.pop())
@@ -465,11 +491,33 @@ class sVM:
                 code = self.stack.pop()
                 self.variables['__builtins__'] = __builtins__
                 self.variables['__file__'] = os.path.abspath(__file__)
-                try:
-                    exec(code, self.variables)
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
+                if _PY_RETURN_RE.search(code):
+                    wrapped = "def _py_block():\n    " + code.strip().replace("\n", "\n    ") + "\n"
+                    try:
+                        exec(wrapped, self.variables)
+                        result = self.variables['_py_block']()
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        result = None
+                    # A `return` inside a py block returns from the enclosing function
+                    # (mirrors the interpreter, which inlines py{} code).
+                    if self.call_stack:
+                        ret_pc, saved_vars = self.call_stack.pop()
+                        self.pc = ret_pc
+                        for k, v in self.variables.items():
+                            if k in saved_vars:
+                                saved_vars[k] = v
+                        self.variables = saved_vars
+                    else:
+                        break
+                    self.stack.append(result)
+                else:
+                    try:
+                        exec(code, self.variables)
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
 
             elif opcode == OpCode.HALT:
                 break
@@ -533,5 +581,5 @@ class sVM:
             pass  # Other opcodes require full context; run() handles them
 
 
-# Backwards-compatible alias used by ORIGIN_CODE/runnerByte.py
+# Backwards-compatible alias used by runnerByte.py
 VM = sVM

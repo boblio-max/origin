@@ -1,45 +1,76 @@
 class calc() {
-    def add(a, b) {
-        py { return a + b }
+    def sin(a, t) {
+        if t == "r" {py { return __import__('math').sin(a) }}
+        if t == "d" {py { return __import__('math').sin(a * (__import__('math').pi/180))}}
+        
     }
-    def sub(a, b) {
-        py { return a - b }
+    def cos(a, t) {
+        if t == "r" {py { return __import__('math').cos(a) }}
+        if t == "d" {py { return __import__('math').cos(a * (__import__('math').pi/180))}}
     }
-    def mul(a, b) {
-        py { return a * b }
+    def tan(a, t) {
+        if t == "r" {py { return __import__('math').tan(a) }}
+        if t == "d" {py { return __import__('math').tan(a * (__import__('math').pi/180))}}
     }
-    def div(a, b) {
-        py { return a / b }
+    def csc(a, t) {
+        if t == "r" {py { return 1/sin(a, t) }}
+        if t == "d" {py { return 1/sin(a * (__import__('math').pi/180, t))}}
+        
     }
-    def pow(a, b) {
-        py { return a ** b }
+    def sec(a, t) {
+        if t == "r" {py { return 1/cos(a, t) }}
+        if t == "d" {py { return 1/cos(a * (__import__('math').pi/180, t))}}
     }
-    def sqrt(a) {
-        py { return __import__('math').sqrt(a) }
+    def cot(a, t) {
+        if t == "r" {py { return 1/tan(a, t) }}
+        if t == "d" {py { return 1/tan(a * (__import__('math').pi/180, t))}}
     }
-    def abs(a) {
-        py { return __import__('math').fabs(a) }
-    }
-    def floor(a) {
-        py { return __import__('math').floor(a) }
-    }
-    def ceil(a) {
-        py { return __import__('math').ceil(a) }
-    }
-    def rand(a, b) {
-        py { return __import__('random').randint(a, b) }
-    }
-    def pi() {
-        py { return __import__('math').pi }
-    }
-    def sin(a) {
-        py { return __import__('math').sin(a) }
-    }
-    def cos(a) {
-        py { return __import__('math').cos(a) }
-    }
-    def tan(a) {
-        py { return __import__('math').tan(a) }
-    }
+
 }
-calc = calc()
+
+# General Calculus & Math Library for Origin
+
+# --- Calculus Tools ---
+
+# Numerical Derivative (Velocity / Rate of Change)
+def derivative(v1:float, v2:float, dt:float) {
+    return (v2 - v1) / dt
+}
+
+# Numerical Integral (Accumulation / Distance)
+def integrate(total:float, val:float, dt:float) {
+    return total + (val * dt)
+}
+
+# PID Controller Step
+def pid(error:float, last_error:float, integral:float, kp:float, ki:float, kd:float) {
+    let p:float = kp * error
+    let i:float = integral + error
+    let d:float = error - last_error
+    return p + (ki * i) + (kd * d)
+}
+
+# --- Utility Math ---
+
+# Clamp: Constrains a value between a minimum and maximum
+def clamp(val:float, min_val:float, max_val:float) {
+    if val < min_val { return min_val }
+    if val > max_val { return max_val }
+    return val
+}
+
+# Lerp: Linear Interpolation (smoothly slide between two numbers)
+def lerp(a:float, b:float, t:float) {
+    return a + (b - a) * t
+}
+
+# Map: Re-maps a number from one range to another
+def map_range(val:float, in_min:float, in_max:float, out_min:float, out_max:float) {
+    return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+}
+
+# Absolute Value
+def abs(val:float) {
+    if val < 0 { return val * -1 }
+    return val
+}

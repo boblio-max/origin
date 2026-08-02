@@ -229,7 +229,7 @@ class Interpreter:
                     params.append(p)
             params = ", ".join(params) if params else ""
             # If inside a class, ensure 'self' is the first parameter (unless already declared)
-            if getattr(self, "_class_depth", 0) > 0 and node.params and node.params[0] != "self":
+            if getattr(self, "_class_depth", 0) > 0 and (not node.params or node.params[0] != "self"):
                 params = "self" if not params else "self, " + params
             code = f"def {node.name}({params}):\n"
             body_code = self.generate(node.body) or "pass"
@@ -404,32 +404,6 @@ class Interpreter:
         elif isinstance(node, ContinueNode):
             return "continue"
 
-        elif isinstance(node, GraphNode):
-            if not getattr(self, '_graph_loaded', False):
-                self._graph_loaded = True
-                lib_path = Path(__file__).resolve().parent / "lib" / "graph.or"
-                with open(lib_path, encoding="utf-8") as f:
-                    lib_code = [line.rstrip("\n") for line in f]
-                lib_tokens = lex(lib_code)
-                lib_ast = Parser(lib_tokens).program()
-                prefix = self.generate(lib_ast) + "\n"
-            else:
-                prefix = ""
-
-            name = node.name or ""
-            params2 = node.params2 or {}
-            labelx = node.labelx or ""
-            labely = node.labely or ""
-            colorx = node.colorx
-            colory = node.colory
-            markermap = node.marker
-
-            call = (
-                f"graph_show({repr(name)}, {repr(params2)}, {repr(labelx)}, "
-                f"{repr(labely)}, {repr(colorx)}, {repr(colory)}, {repr(markermap)})"
-            )
-            return prefix + call
-
         elif isinstance(node, PassNode):
             return "pass"
 
@@ -443,10 +417,9 @@ class Interpreter:
 
         elif isinstance(node, SpecialOpNode):
             if node.op == "??":
-                if node.left is not None:
-                    return node.left
-                else:
-                    return node.right
+                left = self.generate(node.left)
+                right = self.generate(node.right)
+                return f"(lambda _v: _v if _v is not None else ({right}))({left})"
                 
         elif isinstance(node, HardwarePrimitiveNode):
             args = ", ".join(self.generate(arg) for arg in node.args)
@@ -478,6 +451,10 @@ class Interpreter:
 
         elif isinstance(node, SqrtNode):
             return f"math.sqrt({self.generate(node.value)})"
+
+        elif isinstance(node, MathNode):
+            py_func = {"abs": "abs", "floor": "math.floor", "ceil": "math.ceil"}.get(node.func, node.func)
+            return f"{py_func}({self.generate(node.value)})"
 
         elif isinstance(node, RandNumNode):
             return f"random.randint({self.generate(node.start)}, {self.generate(node.end)})"

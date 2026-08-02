@@ -42,7 +42,7 @@ class PyNode(ASTNode):
         self.code = code
     def __repr__(self):
         return f"PyNode({self.code!r})"
-
+    
 class NumberNode(ASTNode):
     """Numeric literal (integer or float)."""
     def __init__(self, value, _type):
@@ -351,6 +351,15 @@ class SqrtNode(ASTNode):
     def __repr__(self):
         return f"SqrtNode({self.value})"
 
+class MathNode(ASTNode):
+    """Unary math operation (abs, floor, ceil) evaluated at runtime."""
+    def __init__(self, func, value):
+        super().__init__()
+        self.func = func
+        self.value = value
+    def __repr__(self):
+        return f"MathNode({self.func!r}, {self.value})"
+
 class RandNumNode(ASTNode):
     """Random number generation."""
     def __init__(self, start, end):
@@ -529,21 +538,6 @@ class ImuFromNode(ASTNode):
         self.name = name
     def __repr__(self):
         return f"ImuFromNode({self.value}, {self.name})"
-# MAKE INTO LIBRARY
-class GraphNode(ASTNode):
-    """Graphing Data"""
-    def __init__(self, name, params1, params2, labelx, labely, colorx, colory, marker):
-        self.name = name 
-        self.params1 = params1
-        self.params2 = params2
-        self.labelx = labelx
-        self.labely = labely
-        self.colorx = colorx
-        self.colory = colory
-        self.marker = marker
-    def __repr__(self):
-        return f"GraphNode({self.name}, {self.params1}, {self.params2}, {self.labelx}, {self.labely}, {self.colorx},{self.colory}, {self.marker})"
-
 class CopyNode(ASTNode):
     """Copy operation (copy variable value)."""
     def __init__(self, src, dst):

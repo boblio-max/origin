@@ -1,14 +1,14 @@
-# Origin Programming Language · v1.7.16
+# Origin Programming Language · v1.7.18
 
 [![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)
-[![Version](https://img.shields.io/badge/Version-v1.7.16-blue?style=flat-square)](https://docs-origin.onrender.com)
+[![Version](https://img.shields.io/badge/Version-v1.7.18-blue?style=flat-square)](https://docs-origin.onrender.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
 
 **Origin** is a Python/Java-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
-> **August 2026 re-issue:** The v1.7.16 release adds a built-in `pi` constant and `abs` keyword function. `true`/`false` literals continue to work as before. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
+> **August 2026 re-issue:** The v1.7.18 release adds a built-in `pi` constant, `abs`/`floor`/`ceil` keyword functions, floor-division (`//`), and `skip` as an alias for `continue`. `true`/`false` literals continue to work as before. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
 
 ---
 
@@ -30,7 +30,7 @@
 ### Standalone (Recommended)
 You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
 
-1. **Download**: [Origin v1.7.16 Stable](https://docs-origin.onrender.com/download.html)
+1. **Download**: [Origin v1.7.18 Stable](https://docs-origin.onrender.com/download.html)
 2. **Install**: Run `secure_install.ps1` with PowerShell.
 3. **Usage**: Open a new terminal and type `origin`.
 

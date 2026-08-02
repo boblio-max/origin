@@ -6,7 +6,7 @@
 #
 set -euo pipefail
 
-ORIGIN_VERSION="1.7.16"
+ORIGIN_VERSION="1.7.18"
 INSTALL_DIR="${ORIGIN_HOME:-$HOME/.origin}"
 BIN_DIR="$INSTALL_DIR/bin"
 PKG_DIR="$INSTALL_DIR/lib"
@@ -77,7 +77,7 @@ sys.path.insert(0, os.path.expanduser("~/.origin/lib"))
 from origin.runner import run_origin
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.16")
+        print("Origin Programming Language v1.7.18")
         print("Usage: origin <file.or>")
         sys.exit(1)
     run_origin(sys.argv[1])

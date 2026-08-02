@@ -129,6 +129,7 @@ class Compiler:
             self.compile(node.right)
             ops = {
                 '+': OpCode.ADD, '-': OpCode.SUB, '*': OpCode.MUL, '/': OpCode.DIV,
+                '//': OpCode.FLOOR_DIV,
                 '==': OpCode.EQ, '!=': OpCode.NEQ, '<': OpCode.LT, '>': OpCode.GT,
                 '<=': OpCode.LTE, '>=': OpCode.GTE, '%': OpCode.MOD, '**': OpCode.POW,
                 '&': OpCode.BIT_AND, '|': OpCode.BIT_OR, '^': OpCode.BIT_XOR,
@@ -149,8 +150,8 @@ class Compiler:
         elif isinstance(node, LogicOpNode):
             self.compile(node.left)
             self.compile(node.right)
-            if node.op == 'and': self.emit(OpCode.AND)
-            elif node.op == 'or': self.emit(OpCode.OR)
+            if node.op in ('and', '&&'): self.emit(OpCode.AND)
+            elif node.op in ('or', '||'): self.emit(OpCode.OR)
 
         elif isinstance(node, PrintNode):
             self.compile(node.expr)
@@ -233,6 +234,7 @@ class Compiler:
                 '-=': OpCode.SUB,
                 '*=': OpCode.MUL,
                 '/=': OpCode.DIV,
+                '//=': OpCode.FLOOR_DIV,
                 '%=': OpCode.MOD,
                 '**=': OpCode.POW
             }
@@ -344,6 +346,13 @@ class Compiler:
             self.compile(node.value)
             self.emit(OpCode.SQRT)
 
+        elif isinstance(node, MathNode):
+            self.compile(node.value)
+            math_ops = {"abs": OpCode.ABS, "floor": OpCode.FLOOR, "ceil": OpCode.CEIL}
+            if node.func not in math_ops:
+                raise RuntimeError(f"Unsupported math op: {node.func}")
+            self.emit(math_ops[node.func])
+
         elif isinstance(node, RandNumNode):
             self.compile(node.start)
             self.compile(node.end)
@@ -416,7 +425,10 @@ class Compiler:
                 if isinstance(stmt, FuncNode):
                     skip_jmp_idx = self.emit_jmp(OpCode.JMP)
                     method_pc = len(self.bytecode)
-                    for param in reversed(stmt.params):
+                    method_params = stmt.params
+                    if not method_params or method_params[0] != "self":
+                        method_params = ["self"] + method_params
+                    for param in reversed(method_params):
                         idx = self.add_constant(param)
                         self.emit(OpCode.STORE_VAR, idx)
                     self.compile(stmt.body)
@@ -537,12 +549,6 @@ class Compiler:
             var_idx = self.add_constant(node.alias)
             self.emit(OpCode.STORE_VAR, var_idx)
 
-        elif isinstance(node, GraphNode):
-            raise NotImplementedError(
-                "graph is not supported in bytecode mode. "
-                "Use the interpreter (runner.py) for graph features."
-            )
-
         elif isinstance(node, LambdaNode):
             skip_jmp_idx = self.emit_jmp(OpCode.JMP)
             lambda_pc = len(self.bytecode)
@@ -639,11 +645,6 @@ class Compiler:
             src_name_idx = self.add_constant(node.src)
             dst_name_idx = self.add_constant(node.dst)
             self.emit(OpCode.COPY, dst_name_idx, src_name_idx)
-
-        elif isinstance(node, GraphNode):
-            idx = self.add_constant((node.name, node.params1, node.params2, node.labelx, node.labely, node.colorx, node.colory, node.marker))
-            self.emit(OpCode.PUSH_CONST, idx)
-            print(f"[BYTECODE] GraphNode deferred: {node.name}")
 
         if isinstance(node, ProgramNode):
             self.emit(OpCode.HALT)

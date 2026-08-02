@@ -11,6 +11,7 @@ import sys
 import textwrap
 from .lexer import lex, Token
 from .classes import *
+from .errors import ParseError
 
 
 class Parser:
@@ -35,13 +36,28 @@ class Parser:
             return self.tokens[self.pos]
         return Token("EOF", "", -1, -1)
 
+    def _error(self, message, suggestion=None, tok=None):
+        """Build a ParseError positioned at the given (or current) token.
+
+        At end of input the position falls back to the last real token so the
+        diagnostic still points somewhere useful.
+        """
+        if tok is None:
+            tok = self.current_token()
+        if tok.line < 1 or tok.type == "EOF":
+            for t in reversed(self.tokens):
+                if t.type not in ("EOF", "WHITESPACE", "NEWLINE") and t.line >= 1:
+                    tok = t
+                    break
+        return ParseError(message, line=tok.line, col=max(tok.col, 0), suggestion=suggestion)
+
     def eat(self, type_):
         """Consume and return the current token when it matches ``type_``."""
         tok = self.current_token()
         if tok.type == type_:
             self.pos += 1
             return tok
-        raise SyntaxError(f"Expected {type_}, got {tok.type} ({tok.value}) at {tok.line}:{tok.col}")
+        raise self._error(f"Expected {type_}, got {tok.type} ({tok.value})")
 
     def _expect_symbol(self, value):
         """Consume a symbol token with the given value, else raise a syntax error."""
@@ -49,9 +65,7 @@ class Parser:
         if tok.type == "SYMBOL" and tok.value == value:
             self.pos += 1
             return tok
-        raise SyntaxError(
-            f"Expected '{value}' but got {tok.type} ({tok.value}) at {tok.line}:{tok.col}"
-        )
+        raise self._error(f"Expected '{value}' but got {tok.type} ({tok.value})")
 
     def _parse_type_annotation(self, allow_ident=False):
         """Consume an optional ``:type`` annotation and return the type name, or None.
@@ -67,8 +81,8 @@ class Parser:
         if t.type in ("IDENT", "KEYWORD"):
             if allow_ident or t.value in ("int", "float", "str", "bool"):
                 return self.eat(t.type).value
-        raise SyntaxError(
-            f"Expected a type name after ':' but got {t.type} ({t.value}) at {t.line}:{t.col}"
+        raise self._error(
+            f"Expected a type name after ':' but got {t.type} ({t.value})"
         )
 
     def _cast_or_none(self, node):
@@ -107,7 +121,7 @@ class Parser:
         if tok.type == "BOOL":
             self.eat("BOOL")
             return BoolNode(tok.value == "true")
-
+        
         if tok.type == "STRING":
             self.eat("STRING")
             return StringNode(tok.value[1:-1], "str")
@@ -130,7 +144,7 @@ class Parser:
                         elif inner[j] == '}': depth -= 1
                         j += 1
                     if depth != 0:
-                        raise SyntaxError("Unmatched '{' in f-string")
+                        raise self._error("Unmatched '{' in f-string")
                     expr_text = inner[i+1:j-1]
                     # Lex and parse the inner expression
                     expr_tokens = lex(expr_text.splitlines())
@@ -172,20 +186,17 @@ class Parser:
             if tok.value == "abs":
                 self.eat("KEYWORD")
                 value = self._cast_or_none(self.special_expr())
-                _a = abs(value.value)
-                return NumberNode(_a, type(_a).__name__)
+                return MathNode("abs", value)
             
             if tok.value == "floor":
                 self.eat("KEYWORD")
                 value = self._cast_or_none(self.special_expr())
-                _f = value.value // 1
-                return NumberNode(_f, type(_f).__name__)
+                return MathNode("floor", value)
             
             if tok.value == "ceil":
                 self.eat("KEYWORD")
                 value = self._cast_or_none(self.special_expr())
-                _c = -(-value.value // 1)
-                return NumberNode(_c, type(_c).__name__)
+                return MathNode("ceil", value)
             
             if tok.value in ("accel", "gyro", "temp"):
                 value = self.eat("KEYWORD").value
@@ -211,7 +222,6 @@ class Parser:
                     self.eat("KEYWORD")
                     count = int(self.eat("INT").value)
                 return ReadNode(file_name, count)
-
 
             if tok.value == "input":
                 self.eat("KEYWORD")
@@ -248,7 +258,7 @@ class Parser:
                 self.eat("KEYWORD")
                 _x = 157079632679489661923 / 50000000000000000000
                 return NumberNode(_x, "float")
-
+            
             if tok.value == "none":
                 self.eat("KEYWORD")
                 return NoneNode()
@@ -359,7 +369,10 @@ class Parser:
                     if self.current_token().type in ("IDENT", "KEYWORD"):
                         attr_name = self.eat(self.current_token().type).value
                     else:
-                        raise SyntaxError(f"Expected attribute name after '.', got {self.current_token()}")
+                        tok_name = self.current_token()
+                        raise self._error(
+                            f"Expected attribute name after '.', got {tok_name.type} ({tok_name.value})"
+                        )
                     node = AttributeNode(node, attr_name)
 
                     # Support non-parenthesized method call syntax: `obj.method arg`
@@ -403,7 +416,9 @@ class Parser:
             if tok.value == "{":
                 return self.dict_literal()
             
-        raise SyntaxError(f"Unexpected token {tok}")
+        if tok.type == "EOF":
+            raise self._error("Unexpected end of input (an expression was expected)")
+        raise self._error(f"Unexpected token {tok.type} ({tok.value})")
 
     def list_literal(self):
         elements = []
@@ -490,7 +505,7 @@ class Parser:
             if op == "->":
                 node = PipeNode(node, right)   
             else:
-                node = SpecialOpNode(node, op, right)
+                node = SpecialOpNode(None, node, op, right)
         return node
 
     def lambda_expr(self):
@@ -669,7 +684,7 @@ class Parser:
                             else:
                                 var = VarNode(first_name)
                         else:
-                            raise SyntaxError("Expected identifier for for-loop target")
+                            raise self._error("Expected identifier for for-loop target")
 
                     self.eat("KEYWORD") # in
                     iterable = self.special_expr()
@@ -681,148 +696,6 @@ class Parser:
             if tok.value == "if":
                 return self.if_stmt()
 
-            if tok.value == "graph":
-                self.eat("KEYWORD")
-                # Optional graph name (string or identifier)
-                name = None
-                if self.current_token().type == "STRING":
-                    name = self.eat("STRING").value[1:-1]
-                elif self.current_token().type in ("IDENT", "KEYWORD"):
-                    name = self.eat(self.current_token().type).value
-
-                # Optional 'with' block: `graph "my graph" with { key: prop(args) as "label", ... }`
-                entries = None
-                if self.current_token().type == "KEYWORD" and self.current_token().value == "with":
-                    self.eat("KEYWORD")
-                    # Parse a brace-enclosed list of entries
-                    self.eat("BRACKET")  # {
-                    entries = {}
-                    self.skip_newlines()
-                    while self.current_token().type != "BRACKET" or self.current_token().value != "}":
-                        # Field name (IDENT or KEYWORD)
-                        if self.current_token().type in ("IDENT", "KEYWORD"):
-                            field = self.eat(self.current_token().type).value
-                        else:
-                            raise SyntaxError("Expected identifier for graph field")
-
-                        # Expect ':'
-                        if self.current_token().type == "SYMBOL" and self.current_token().value == ":":
-                            self.eat("SYMBOL")
-                        else:
-                            raise SyntaxError("Expected ':' after graph field name")
-
-                        # Property name (e.g., color) - allow keywords too
-                        if self.current_token().type in ("IDENT", "KEYWORD"):
-                            prop = self.eat(self.current_token().type).value
-                        else:
-                            raise SyntaxError("Expected property name in graph field")
-
-                        # Optional argument list in parentheses
-                        args = None
-                        if self.current_token().type == "SYMBOL" and self.current_token().value == "(":
-                            self.eat("SYMBOL")
-                            args = []
-                            self.skip_newlines()
-                            if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
-                                args.append(self.special_expr())
-                                while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
-                                    self.eat("SYMBOL")
-                                    self.skip_newlines()
-                                    args.append(self.special_expr())
-                            self.eat("SYMBOL")  # )
-
-                        # Optional `as` label
-                        label = None
-                        if self.current_token().type == "KEYWORD" and self.current_token().value == "as":
-                            self.eat("KEYWORD")
-                            if self.current_token().type == "STRING":
-                                label = self.eat("STRING").value[1:-1]
-                            else:
-                                raise SyntaxError("Expected string after 'as' in graph field")
-
-                        entries[field] = {"prop": prop, "args": args, "label": label}
-
-                        self.skip_newlines()
-                        # Trailing comma optional before closing brace
-                        if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
-                            self.eat("SYMBOL")
-                            self.skip_newlines()
-
-                    self.eat("BRACKET")  # }
-
-                # Normalize parsed entries into params2 and populate color/marker fields
-                params2 = None
-                color_map = None
-                marker_map = None
-                labelx = None
-                labely = None
-
-                if entries:
-                    params2 = {}
-                    color_map = {}
-                    marker_map = {}
-                    for field, info in entries.items():
-                        prop = info.get("prop")
-                        args = info.get("args")
-                        label = info.get("label")
-
-                        # Normalize color arguments into an (r,g,b) tuple when possible
-                        normalized = None
-                        if prop == "color" and args:
-                            elems = []
-                            # args may be a single TupleNode or multiple NumberNode items
-                            if len(args) == 1 and type(args[0]).__name__ == "TupleNode":
-                                elems = args[0].elements
-                            else:
-                                elems = args
-                            try:
-                                rgb = tuple(int(e.value) for e in elems if hasattr(e, "value"))
-                            except Exception:
-                                rgb = None
-                            normalized = rgb
-                            if rgb is not None:
-                                color_map[field] = rgb
-
-                        # Normalize marker argument to string when possible
-                        elif prop == "marker" and args:
-                            m = args[0]
-                            if type(m).__name__ == "StringNode":
-                                marker = m.value
-                            elif type(m).__name__ == "VarNode":
-                                marker = m.name
-                            else:
-                                marker = None
-                            normalized = marker
-                            if marker is not None:
-                                marker_map[field] = marker
-
-                        else:
-                            # Keep raw AST args for unknown props
-                            normalized = args
-
-                        params2[field] = {"prop": prop, "value": normalized, "label": label}
-
-                    # Populate axis labels if present
-                    if "X" in entries and entries["X"].get("label"):
-                        labelx = entries["X"]["label"]
-                    if "Y" in entries and entries["Y"].get("label"):
-                        labely = entries["Y"]["label"]
-
-                    # If color_map or marker_map are empty, use None
-                    if not color_map:
-                        color_map = None
-                    if not marker_map:
-                        marker_map = None
-
-                # Split color_map into X/Y specific fields expected by GraphNode
-                colorx = None
-                colory = None
-                if color_map:
-                    colorx = color_map.get("X")
-                    colory = color_map.get("Y")
-
-                return GraphNode(name, entries, params2, labelx, labely, colorx, colory, marker_map)
-            
             if tok.value == "while":
                 self.eat("KEYWORD")
                 condition = self._cast_or_none(self.special_expr())
@@ -874,7 +747,7 @@ class Parser:
                                 if self.current_token().type in ("IDENT", "KEYWORD"):
                                     targets.append(VarNode(self.eat(self.current_token().type).value))
                                 else:
-                                    raise SyntaxError("Expected identifier in unpacking target")
+                                    raise self._error("Expected identifier in unpacking target")
                             var = TupleNode(targets)
                         else:
                             var = VarNode(first_name)
@@ -883,7 +756,7 @@ class Parser:
                                 var_type = self._parse_type_annotation(allow_ident=True)
                             var.var_type = var_type
                     else:
-                        raise SyntaxError("Expected identifier for for-loop target")
+                        raise self._error("Expected identifier for for-loop target")
                 self.eat("KEYWORD") # in
                 iterable = self.special_expr()
                 body = self.block()
@@ -894,7 +767,10 @@ class Parser:
                 if self.current_token().type in ("IDENT", "KEYWORD"):
                     name = self.eat(self.current_token().type).value
                 else:
-                    raise SyntaxError(f"Expected function name, got {self.current_token()}")
+                    tok_name = self.current_token()
+                    raise self._error(
+                        f"Expected function name, got {tok_name.type} ({tok_name.value})"
+                    )
                 self.eat("SYMBOL") # (
                 params = []
                 param_types = {}
@@ -907,7 +783,7 @@ class Parser:
                         if ptype:
                             param_types[pname] = ptype
                     else:
-                        raise SyntaxError("Expected parameter name in function definition")
+                            raise self._error("Expected parameter name in function definition")
                     while self.current_token().value == ",":
                         self.eat("SYMBOL")
                         p_tok = self.current_token()
@@ -918,7 +794,7 @@ class Parser:
                             if ptype:
                                 param_types[pname] = ptype
                         else:
-                            raise SyntaxError("Expected parameter name in function definition")
+                            raise self._error("Expected parameter name in function definition")
                 self.eat("SYMBOL") # )
                 body = self.block()
                 return FuncNode(name, params, body, param_types)
@@ -928,7 +804,10 @@ class Parser:
                 if self.current_token().type in ("IDENT", "KEYWORD"):
                     name = self.eat(self.current_token().type).value
                 else:
-                    raise SyntaxError(f"Expected class name, got {self.current_token()}")
+                    tok_name = self.current_token()
+                    raise self._error(
+                        f"Expected class name, got {tok_name.type} ({tok_name.value})"
+                    )
                 self.eat("SYMBOL") # (
                 fields = []
                 field_types = {}
@@ -1002,7 +881,7 @@ class Parser:
                 self.eat("KEYWORD")
                 return BreakNode()
 
-            if tok.value == "continue":
+            if tok.value in ["continue", "skip"]:
                 self.eat("KEYWORD")
                 return ContinueNode()
 
