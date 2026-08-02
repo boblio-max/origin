@@ -104,6 +104,10 @@ class Parser:
             self.eat("FLOAT")
             return NumberNode(float(tok.value), "float")
 
+        if tok.type == "BOOL":
+            self.eat("BOOL")
+            return BoolNode(tok.value == "true")
+
         if tok.type == "STRING":
             self.eat("STRING")
             return StringNode(tok.value[1:-1], "str")
@@ -165,6 +169,24 @@ class Parser:
                 self._expect_symbol(")")
                 return RangeNode(start, end, step)
             
+            if tok.value == "abs":
+                self.eat("KEYWORD")
+                value = self._cast_or_none(self.special_expr())
+                _a = abs(value.value)
+                return NumberNode(_a, type(_a).__name__)
+            
+            if tok.value == "floor":
+                self.eat("KEYWORD")
+                value = self._cast_or_none(self.special_expr())
+                _f = value.value // 1
+                return NumberNode(_f, type(_f).__name__)
+            
+            if tok.value == "ceil":
+                self.eat("KEYWORD")
+                value = self._cast_or_none(self.special_expr())
+                _c = -(-value.value // 1)
+                return NumberNode(_c, type(_c).__name__)
+            
             if tok.value in ("accel", "gyro", "temp"):
                 value = self.eat("KEYWORD").value
                 self.eat("KEYWORD") #from
@@ -221,6 +243,11 @@ class Parser:
             if tok.value == "false":
                 self.eat("KEYWORD")
                 return BoolNode(False)
+
+            if tok.value == "pi":
+                self.eat("KEYWORD")
+                _x = 157079632679489661923 / 50000000000000000000
+                return NumberNode(_x, "float")
 
             if tok.value == "none":
                 self.eat("KEYWORD")

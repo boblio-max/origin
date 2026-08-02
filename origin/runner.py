@@ -90,7 +90,7 @@ def run_origin(file_path, mode="vm"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.15")
+        print("Origin Programming Language v1.7.16")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)
