@@ -1,14 +1,14 @@
-# Origin Programming Language · v1.7.18
+# Origin Programming Language · v1.7.19
 
 [![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)
-[![Version](https://img.shields.io/badge/Version-v1.7.18-blue?style=flat-square)](https://docs-origin.onrender.com)
+[![Version](https://img.shields.io/badge/Version-v1.7.19-blue?style=flat-square)](https://docs-origin.onrender.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
 
 **Origin** is a Python/Java-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
-> **August 2026 re-issue:** The v1.7.18 release adds a built-in `pi` constant, `abs`/`floor`/`ceil` keyword functions, floor-division (`//`), and `skip` as an alias for `continue`. `true`/`false` literals continue to work as before. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
+> **August 2026 re-issue:** The v1.7.19 release adds multi-assignment declarations (`let a, b = 1, 2`) with per-name type annotations, stricter type checking on `let` across both the interpreter and the bytecode VM, `__file__` support for library imports, and a greatly expanded HuggingFace-style transformer library (device selection, tokenization, generation, evaluation, LoRA adapters, and a one-shot `run_pipeline` fine-tuner). The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
 
 ---
 
@@ -17,7 +17,7 @@
 *   **English-Like Syntax**: Write code that reads like natural language.
 *   **Built-in Library System**: Import `.or` library files with `import calc`, including a math library (`calc.or`) and graph plotting library (`graph.or`).
 *   **Hardware Primitives**: Native, intuitive commands for Raspberry Pi GPIO and ServoKit (PCA9685).
-*   **Strict Typing**: Mandatory type annotations (`let x: int = 10`) for predictable state and AI-native safety.
+*   **Strict Typing**: Recommended type annotations (`let x: int = 10`) for predictable state and AI-native safety, with untyped declarations auto-inferred.
 *   **Safe Hardware I/O**: Automatic angle clamping (0-180 degrees) for servos to prevent physical damage.
 *   **Formal Module System**: Professional namespacing and module support (`import math as m`, `from lib import x`).
 *   **Binary Builder**: Compile your Origin scripts into standalone, zero-dependency `.exe` files.
@@ -30,7 +30,7 @@
 ### Standalone (Recommended)
 You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
 
-1. **Download**: [Origin v1.7.18 Stable](https://docs-origin.onrender.com/download.html)
+1. **Download**: [Origin v1.7.19 Stable](https://docs-origin.onrender.com/download.html)
 2. **Install**: Run `secure_install.ps1` with PowerShell.
 3. **Usage**: Open a new terminal and type `origin`.
 
@@ -50,7 +50,7 @@ You can now download Origin as a standalone installer for Windows. This is the f
 ## Language Reference
 
 ### 1. Variables & Types
-Origin uses `let` for variables and `const` for immutable references. Types are mandatory.
+Origin uses `let` for variables and `const` for immutable references. Types are recommended; untyped declarations are auto-inferred.
 
 ```origin
 let   x: int    = 10          # Scalar integer
@@ -58,6 +58,13 @@ let   name: str = "Origin"    # String literal
 let   flag: bool = true       # Boolean (lowercase)
 const e: float = 2.71828      # Immutable constant
 let   data: none = none       # None literal
+```
+
+Multiple variables can be declared (and typed) in one statement:
+
+```origin
+let a, b = 1, 2               # Inferred: int, int
+let p, q: int, str = 6, "hi"  # Per-name annotations
 ```
 
 Built-in constants and math helpers are available without imports:

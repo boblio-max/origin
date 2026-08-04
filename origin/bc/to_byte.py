@@ -124,6 +124,34 @@ class Compiler:
             idx = self.add_constant(node.name)
             self.emit(OpCode.STORE_VAR, idx)
 
+        elif isinstance(node, MultAssignNode):
+            names = node.names if isinstance(node.names, list) else [node.names]
+            values = node.value if isinstance(node.value, list) else [node.value]
+            annotations = node.type if isinstance(node.type, list) else [node.type]
+            if len(names) != len(values):
+                raise RuntimeError("Type Mismatch: number of names and values in multi-assignment must match")
+            value_types = [self.get_type(value) for value in values]
+            for value in values:
+                self.compile(value)
+            for i in reversed(range(len(names))):
+                name = names[i]
+                if name in self.const_names:
+                    raise TypeError(f"Type Mismatch: constant '{name}' cannot be reassigned")
+                value_type = value_types[i]
+                annotation = annotations[i] if i < len(annotations) else None
+                if annotation is not None:
+                    if value_type is not None and value_type != annotation:
+                        raise TypeError(f"Type Mismatch: variable '{name}' declared as {annotation} but assigned {value_type}")
+                    self.variable_types[name] = annotation
+                elif name not in self.variable_types:
+                    self.variable_types[name] = value_type if value_type is not None else "any"
+                else:
+                    expected_type = self.variable_types[name]
+                    if value_type is not None and expected_type not in (None, "any") and value_type != expected_type:
+                        raise TypeError(f"Type Mismatch: variable '{name}' is {expected_type} but assigned {value_type}")
+                idx = self.add_constant(name)
+                self.emit(OpCode.STORE_VAR, idx)
+
         elif isinstance(node, BinOpNode):
             self.compile(node.left)
             self.compile(node.right)

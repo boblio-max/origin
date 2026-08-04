@@ -34,7 +34,11 @@ class Interpreter:
     def _collect_module_vars(self, node):
         """First pass: collect all variable names declared at module level."""
         for stmt in node.statements:
-            if isinstance(stmt, AssignNode) and not isinstance(stmt.value, FuncNode):
+            if isinstance(stmt, MultAssignNode):
+                names = stmt.names if isinstance(stmt.names, list) else [stmt.names]
+                for n in names:
+                    self._module_vars.add(n)
+            elif isinstance(stmt, (AssignNode, ConstAssignNode)) and not isinstance(stmt.value, FuncNode):
                 self._module_vars.add(stmt.name)
 
     def _get_global_vars_in_func(self, node):
@@ -48,6 +52,11 @@ class Interpreter:
         elif isinstance(node, AssignNode):
             if node.name in self._module_vars:
                 result.add(node.name)
+        elif isinstance(node, MultAssignNode):
+            names = node.names if isinstance(node.names, list) else [node.names]
+            for n in names:
+                if n in self._module_vars:
+                    result.add(n)
         elif isinstance(node, FuncNode):
             result |= self._get_global_vars_in_func(node.body)
         elif isinstance(node, IfNode):
@@ -150,6 +159,30 @@ class Interpreter:
                 self.variable_types[node.name] = val_type
 
             return assign_code
+
+        elif isinstance(node, MultAssignNode):
+            names = node.names if isinstance(node.names, list) else [node.names]
+            values = node.value if isinstance(node.value, list) else [node.value]
+            annotations = node.type if isinstance(node.type, list) else [node.type]
+            if len(names) != len(values):
+                raise RuntimeError("Type Mismatch: number of names and values in multi-assignment must match")
+            for name in names:
+                if name in self.CONST_VARS:
+                    raise RuntimeError(f"Cannot reassign constant '{name}'")
+            value_codes = []
+            for i, name in enumerate(names):
+                value = values[i]
+                val_type = self.get_type(value)
+                annotation = annotations[i] if i < len(annotations) else None
+                code = self.generate(value)
+                if annotation and val_type and annotation != val_type:
+                    code = f"{annotation}({code})"
+                if annotation:
+                    self.variable_types[name] = annotation
+                elif val_type:
+                    self.variable_types[name] = val_type
+                value_codes.append(code)
+            return ", ".join(names) + " = " + ", ".join(value_codes)
 
         elif isinstance(node, ConstAssignNode):
             if node.name in self.CONST_VARS:
@@ -379,11 +412,13 @@ class Interpreter:
             or_path = lib_dir / f"{node.name}.or"
             py_path = lib_dir / f"{node.name}.py"
             if or_path.exists():
+                lib_path = str(lib_dir).replace("\\", "\\\\")
+                preamble = f"import sys as _sys\nif r'{lib_path}' not in _sys.path:\n    _sys.path.insert(0, r'{lib_path}')\n"
                 with open(or_path, encoding="utf-8") as f:
                     code = [line.rstrip("\n") for line in f]
                 _lex = lex(code)
                 _parse = Parser(_lex).program()
-                return self.generate(_parse)
+                return preamble + self.generate(_parse)
             elif py_path.exists():
                 return f"exec(open({str(py_path)!r}).read())"
             else:

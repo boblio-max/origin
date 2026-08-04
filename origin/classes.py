@@ -110,6 +110,13 @@ class AssignNode(ASTNode):
     def __repr__(self):
         return f"AssignNode({self.name}, {self.value}, {self.type})"
 
+class MultAssignNode(ASTNode):
+    def __init__(self, names, value, _type=None):
+        super().__init__()
+        self.names, self.value, self.type = names, value, _type
+    def __repr__(self):
+        return f"MultAssignNode({self.names}, {self.value}, {self.type})"
+    
 class ConstAssignNode(ASTNode):
     """Constant declaration (const)."""
     def __init__(self, name, value, _type=None):

@@ -549,22 +549,35 @@ class Parser:
         if tok.type == "KEYWORD":
             if tok.value == "let":
                 self.eat("KEYWORD")
-                name = self.eat(self.current_token().type).value
-                _type = None
+                names = [self.eat(self.current_token().type).value]
+                while self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                    names.append(self.eat(self.current_token().type).value)
+                _types = []
                 if self.current_token().value == ":":
                     self.eat("SYMBOL")
-                    _type = self.eat(self.current_token().type).value # int, float, etc.
+                    while True:
+                        _types.append(self.eat(self.current_token().type).value)
+                        if self.current_token().value == ",":
+                            self.eat("SYMBOL")
+                        else:
+                            break
                 else:
                     # No type annotation: nudge toward strict typing, but auto-infer
                     print(
-                        f"[WARNING] Variable '{name}' declared without a type annotation; "
-                        f"the type will be inferred. Tip: use `let {name}: <type> = ...` "
+                        f"[WARNING] Variable '{names[0]}' declared without a type annotation; "
+                        f"the type will be inferred. Tip: use `let {names[0]}: <type> = ...` "
                         f"for strict typing.",
                         file=sys.stderr,
                     )
                 self.eat("ASSIGN")
-                value = self.special_expr()
-                return AssignNode(name, value, _type)
+                values = [self.special_expr()]
+                while self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                    values.append(self.special_expr())
+                if len(names) == 1:
+                    return MultAssignNode(names[0], values[0], _types[0] if _types else None)
+                return MultAssignNode(names, values, _types or [None])
 
             if tok.value == "self":
                 start_pos = self.pos
@@ -701,7 +714,7 @@ class Parser:
                 condition = self._cast_or_none(self.special_expr())
                 body = self.block()
                 return WhileNode(condition, body)
-
+                 
             if tok.value == "for":
                 self.eat("KEYWORD")
                 # Parse target: allow a single identifier or an unpacking tuple/list

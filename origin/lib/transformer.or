@@ -5,9 +5,7 @@ let _lora_cfg = none
 
 py {
     import sys, os
-    _lib_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ORIGIN_CODE', 'lib')
-    if not os.path.isdir(_lib_dir):
-        _lib_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+    _lib_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
     if _lib_dir not in sys.path:
         sys.path.insert(0, _lib_dir)
     from transformer import transformer as _Transformer
@@ -16,27 +14,47 @@ py {
 
 def init_transformer(data_path, model_name, output_dir) {
     _tfr = _Transformer()
-    _tfr.init(data_path, model_name, output_dir)
+    py { return _tfr.init(data_path, model_name, output_dir) }
 }
 
 def tf_config(max_seq, batch_size, epoch, lr) {
-    _tfr.config(max_seq, batch_size, epoch, lr)
+    py { return _tfr.config(max_seq, batch_size, epoch, lr) }
+}
+
+def set_device(device) {
+    py { return _tfr.set_device(device) }
+}
+
+def set_training_options(warmup_steps, weight_decay, fp16, eval_strategy) {
+    py { return _tfr.set_training_options(warmup_steps, weight_decay, fp16, eval_strategy) }
 }
 
 def load_data() {
-    _tfr.load_data()
+    py { return _tfr.load_data() }
 }
 
 def split_data() {
-    _tfr.split_data()
+    py { return _tfr.split_data() }
+}
+
+def tokenize_data() {
+    py { return _tfr.tokenize_data() }
 }
 
 def load_tokens() {
-    _tfr.load_tokens()
+    py { return _tfr.load_tokens() }
+}
+
+def set_pad_token() {
+    py { return _tfr.set_pad_token() }
 }
 
 def load_model() {
-    _tfr.load_model()
+    py { return _tfr.load_model() }
+}
+
+def load_model_from_dir(model_dir) {
+    py { return _tfr.load_model_from_dir(model_dir) }
 }
 
 def lora(r, lora_alpha, target_modules, lora_dropout, bias, task_type) {
@@ -45,18 +63,76 @@ def lora(r, lora_alpha, target_modules, lora_dropout, bias, task_type) {
     _lora_cfg = lo.lora_config
 }
 
+def lora_ext(r, lora_alpha, target_modules, lora_dropout, bias, task_type, use_rslora, fan_in_fan_out, modules_to_save, init_lora_weights, layers_to_transform, layers_pattern) {
+    let lo = _Lora()
+    lo.init_ext(r, lora_alpha, target_modules, lora_dropout, bias, task_type, use_rslora, fan_in_fan_out, modules_to_save, init_lora_weights, layers_to_transform, layers_pattern)
+    _lora_cfg = lo.lora_config
+}
+
 def merge_model() {
-    _tfr.merge_model(_lora_cfg)
+    py { return _tfr.merge_model(_lora_cfg) }
+}
+
+def save_adapter(adapter_dir) {
+    py { return _tfr.save_adapter(adapter_dir) }
+}
+
+def load_adapter(adapter_dir) {
+    py { return _tfr.load_adapter(adapter_dir) }
+}
+
+def merge_unload() {
+    py { return _tfr.merge_unload() }
 }
 
 def init_training_args(gradient_accumulation, log_dir, log_steps, save_steps, save_t_limit, load_best_model) {
-    _tfr.training_args(gradient_accumulation, log_dir, log_steps, save_steps, save_t_limit, load_best_model)
+    py { return _tfr.training_args(gradient_accumulation, log_dir, log_steps, save_steps, save_t_limit, load_best_model) }
 }
 
 def init_trainer() {
-    _tfr.init_trainer()
+    py { return _tfr.init_trainer() }
 }
 
 def train() {
     _tfr.train()
+}
+
+def evaluate() {
+    py { return _tfr.evaluate() }
+}
+
+def save_model() {
+    py { return _tfr.save_model() }
+}
+
+def encode(text) {
+    py { return _tfr.encode(text) }
+}
+
+def decode(token_ids) {
+    py { return _tfr.decode(token_ids) }
+}
+
+def generate(prompt, max_new_tokens, temperature, top_p, top_k, do_sample) {
+    py { return _tfr.generate(prompt, max_new_tokens, temperature, top_p, top_k, do_sample) }
+}
+
+def generate_response(prompt, max_new_tokens) {
+    py { return _tfr.generate(prompt, max_new_tokens, None, None, None, None) }
+}
+
+def batch_generate(prompts, max_new_tokens) {
+    py { return _tfr.batch_generate(prompts, max_new_tokens) }
+}
+
+def pipeline(prompt, max_new_tokens) {
+    py { return _tfr.pipeline(prompt, max_new_tokens) }
+}
+
+def param_count() {
+    py { return _tfr.param_count() }
+}
+
+def run_pipeline() {
+    _tfr.run_pipeline(_lora_cfg)
 }
