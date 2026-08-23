@@ -18,6 +18,8 @@ origin/bc/to_byte.py
 origin/lib/__init__.py
 origin/lib/calc.or
 origin/lib/graph.or
+origin/lib/gui.or
+origin/lib/gui.py
 origin/lib/lora.py
 origin/lib/transformer.or
 origin/lib/transformer.py

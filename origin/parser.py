@@ -715,6 +715,19 @@ class Parser:
                 body = self.block()
                 return WhileNode(condition, body)
                  
+            if tok.value == "run":
+                self.eat("KEYWORD")  # run
+                cmd_tok = self.current_token()
+                if cmd_tok.type != "KEYWORD" or cmd_tok.value != "command":
+                    raise self._error(f"Expected 'command' after 'run' but got {cmd_tok.type} ({cmd_tok.value})")
+                self.eat("KEYWORD")  # command
+                str_tok = self.eat("STRING")
+                command = str_tok.value[1:-1]  # strip surrounding quotes
+                flags = None
+                if self.current_token().type == "BRACKET" and self.current_token().value == "{":
+                    flags = self.block()
+                return CommandNode(command, flags)
+                
             if tok.value == "for":
                 self.eat("KEYWORD")
                 # Parse target: allow a single identifier or an unpacking tuple/list

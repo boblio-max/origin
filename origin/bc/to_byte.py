@@ -57,10 +57,13 @@ class Compiler:
             
         return getattr(node, 'type', None)
 
-    def emit(self, opcode, operand=None):
-        self.bytecode.append(opcode)
-        if operand is not None:
-            self.bytecode.append(operand)
+    def emit(self, opcode, *operands):
+        self.bytecode.append(opcode & 0xFF)
+        for op in operands:
+            if op is None:
+                continue
+            # mask to byte range; -1 (sentinel for read) becomes 0xFF
+            self.bytecode.append(op & 0xFF)
 
     def add_constant(self, value):
         for i, c in enumerate(self.constants):

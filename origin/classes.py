@@ -102,6 +102,15 @@ class VarNode(ASTNode):
     def __repr__(self):
         return f"VarNode({self.name}, {self.type})"
 
+class CommandNode(ASTNode):
+    def __init__(self, command, flags=None):
+        super().__init__()
+        self.command = command
+        self.flags = flags if flags is not None else []
+        # backward-compat alias (interpreter historically used .params)
+        self.params = self.flags
+    def __repr__(self):
+        return f"CommandNode({self.command!r}, {self.flags!r})"
 class AssignNode(ASTNode):
     """Assignment operation (let)."""
     def __init__(self, name, value, _type=None):

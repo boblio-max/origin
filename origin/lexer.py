@@ -30,7 +30,7 @@ TOKEN_REGEX = [
     (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"), # Arithmetic and bitwise operators
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
-    (r"\b(none|if|elif|else|for|to|while|write|pi|with|return|py|int|read|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|abs|floor|ceil|append|address|accel|gyro|temp|break|input|skip|continue|def|func|import|from|class|try|call|except|set|ifinstance|pass|as|bool|parallel|range|self)\b", "KEYWORD"), # Reserved keywords
+    (r"\b(none|if|elif|else|for|to|while|write|pi|with|return|py|int|run|read|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|abs|floor|ceil|append|address|accel|gyro|temp|break|input|skip|continue|def|func|import|from|class|try|call|except|set|ifinstance|pass|as|bool|parallel|range|self|command)\b", "KEYWORD"), # Reserved keywords
     (r"\b(mpu6050|mpu9250|mpu6500|mpu9255|mpu6000|mpu9150|mpu9256|mpu9257|mpu9258|mpu9259)\b", "IMU"), # IMU keywords
     (r"[A-Za-z_][A-Za-z0-9_]*", "IDENT"), # Identifiers
 ]

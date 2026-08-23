@@ -500,7 +500,22 @@ class Interpreter:
         elif isinstance(node, InputNode):
             prompt = self.generate(node.prompt) if node.prompt else ""
             return f"input({prompt})"
-
+        
+        elif isinstance(node, CommandNode):
+            # Generate Python code that runs at runtime, not at compile time.
+            # Handle both str and Token storage for command (with or without quotes)
+            cmd = node.command
+            if hasattr(cmd, 'value'):
+                cmd = cmd.value
+            if isinstance(cmd, str) and len(cmd) >= 2 and cmd[0] in ('"', "'") and cmd[-1] == cmd[0]:
+                cmd = cmd[1:-1]
+            # flags may be stored as .flags or legacy .params
+            flags = getattr(node, 'flags', getattr(node, 'params', None))
+            # If flags is a dict, expand as kwargs; BlockNode/list flags are ignored for now
+            if isinstance(flags, dict) and flags:
+                kwargs = ", ".join(f"{k}={repr(v)}" for k, v in flags.items())
+                return f"__import__('subprocess').run({repr(cmd)}.split(), {kwargs})"
+            return f"__import__('subprocess').run({repr(cmd)}.split())"
         else:
             raise RuntimeError(f"Unknown node type: {type(node)}")
 

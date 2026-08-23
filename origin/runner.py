@@ -8,6 +8,14 @@ Usage: origin <file.or>         # bytecode VM (default)
 import sys
 import os
 
+# Auto-detect .venv and re-exec with it if not already using it
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_venv_python = os.path.join(_project_root, ".venv", "Scripts", "python.exe")
+if os.path.isfile(_venv_python) and sys.executable.lower() != os.path.abspath(_venv_python).lower():
+    os.execv(_venv_python, [_venv_python] + sys.argv)
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from .lexer import lex
 from .parser import Parser
 from .errors import ParseError, report_error, translate_python_error
@@ -101,7 +109,7 @@ def run_origin(file_path, mode="vm"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.19")
+        print("Origin Programming Language v1.7.20")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)

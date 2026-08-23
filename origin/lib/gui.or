@@ -1,0 +1,139 @@
+# gui.or — Origin wrappers directly around pyautogui
+# No intermediate gui.py — each Origin method calls pyautogui itself via py{}
+# Usage:
+#   import gui
+#   let g = GUI()
+#   g.moveTo(500, 500)
+#   g.click()
+#   g.typewrite("hello")
+
+py { import pyautogui }
+
+class GUI() {
+    # --- mouse ---------------------------------------------------------------
+    def moveTo(x, y) {
+        py { pyautogui.moveTo(x, y) }
+    }
+    def moveRel(x, y) {
+        py { pyautogui.moveRel(x, y) }
+    }
+    def dragTo(x, y) {
+        py { pyautogui.dragTo(x, y) }
+    }
+    def dragRel(x, y) {
+        py { pyautogui.dragRel(x, y) }
+    }
+    def click() {
+        py { pyautogui.click() }
+    }
+    def clickAt(x, y) {
+        py { pyautogui.click(x, y) }
+    }
+    def doubleClick() {
+        py { pyautogui.doubleClick() }
+    }
+    def rightClick() {
+        py { pyautogui.rightClick() }
+    }
+    def middleClick() {
+        py { pyautogui.middleClick() }
+    }
+    def mouseDown() {
+        py { pyautogui.mouseDown() }
+    }
+    def mouseUp() {
+        py { pyautogui.mouseUp() }
+    }
+    def scroll(clicks) {
+        py { pyautogui.scroll(clicks) }
+    }
+    def hscroll(clicks) {
+        py { pyautogui.hscroll(clicks) }
+    }
+    def vscroll(clicks) {
+        py { pyautogui.vscroll(clicks) }
+    }
+    def position() {
+        py { return pyautogui.position() }
+    }
+    def size() {
+        py { return pyautogui.size() }
+    }
+    def onScreen(x, y) {
+        py { return pyautogui.onScreen(x, y) }
+    }
+
+    # --- keyboard ------------------------------------------------------------
+    def typewrite(text) {
+        py { pyautogui.typewrite(text) }
+    }
+    def write(text) {
+        py { pyautogui.write(text) }
+    }
+    def press(key) {
+        py { pyautogui.press(key) }
+    }
+    def keyDown(key) {
+        py { pyautogui.keyDown(key) }
+    }
+    def keyUp(key) {
+        py { pyautogui.keyUp(key) }
+    }
+    def hotkey(a, b) {
+        py { pyautogui.hotkey(a, b) }
+    }
+    def hotkey3(a, b, c) {
+        py { pyautogui.hotkey(a, b, c) }
+    }
+
+    # --- screenshot / image --------------------------------------------------
+    def screenshot() {
+        py { return pyautogui.screenshot() }
+    }
+    def pixel(x, y) {
+        py { return pyautogui.pixel(x, y) }
+    }
+    def pixelMatchesColor(x, y, color) {
+        py { return pyautogui.pixelMatchesColor(x, y, color) }
+    }
+    def locateOnScreen(image) {
+        py { return pyautogui.locateOnScreen(image) }
+    }
+    def locateCenterOnScreen(image) {
+        py { return pyautogui.locateCenterOnScreen(image) }
+    }
+
+    # --- message boxes / util ------------------------------------------------
+    def alert(text) {
+        py { return pyautogui.alert(text) }
+    }
+    def confirm(text) {
+        py { return pyautogui.confirm(text) }
+    }
+    def prompt(text) {
+        py { return pyautogui.prompt(text) }
+    }
+    def sleep(secs) {
+        py { pyautogui.sleep(secs) }
+    }
+}
+
+# --- module-level functions (no instance needed) ---------------------------
+def guiMoveTo(x, y) {
+    py { pyautogui.moveTo(x, y) }
+}
+def guiClick() {
+    py { pyautogui.click() }
+}
+def guiTypewrite(text) {
+    py { pyautogui.typewrite(text) }
+}
+def guiPress(key) {
+    py { pyautogui.press(key) }
+}
+def guiHotkey(a, b) {
+    py { pyautogui.hotkey(a, b) }
+}
+def guiScreenshot() {
+    py { return pyautogui.screenshot() }
+}
