@@ -5,7 +5,9 @@ let _lora_cfg = none
 
 py {
     import sys, os
-    _lib_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
+    _lib_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ORIGIN_CODE', 'lib')
+    if not os.path.isdir(_lib_dir):
+        _lib_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib')
     if _lib_dir not in sys.path:
         sys.path.insert(0, _lib_dir)
     from transformer import transformer as _Transformer

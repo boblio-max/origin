@@ -464,7 +464,7 @@ class Parser:
 
     def unary(self):
         tok = self.current_token()
-        if tok.type == "UNARY" or (tok.type == "LOGIC" and tok.value in ("not", "!")) or (tok.type == "ARITH" and tok.value == "-"):
+        if tok.type == "UNARY" or (tok.type == "LOGIC" and tok.value in ("not", "!")) or (tok.type == "ARITH" and tok.value in ("-", "~", "+")):
             op = self.eat(tok.type).value
             return UnaryOpNode(op, self.unary())
         return self.factor()
@@ -478,7 +478,7 @@ class Parser:
 
     def expr(self):
         node = self.term()
-        while self.current_token().type == "ARITH" and self.current_token().value in ("+", "-"):
+        while self.current_token().type == "ARITH" and self.current_token().value in ("+", "-", "<<", ">>", "&", "|", "^"):
             op = self.eat("ARITH").value
             node = BinOpNode(node, op, self.term())
         return node

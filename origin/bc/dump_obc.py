@@ -7,7 +7,7 @@ or, programmatically:
     from origin.bc.dump_obc import dump
     dump(bytecode_list, constants_list, "out.obc")
 
-The .obc format is the wire contract with Loader.java:
+The .obc format is the wire contract with bc/Loader.java:
 
     magic        : "OBC1"            (4 bytes)
     version      : 0x01              (1 byte)
@@ -117,9 +117,9 @@ def _cli(argv: List[str]) -> int:
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 
-    from ..lexer import lex
-    from ..parser import Parser
-    from .to_byte import Compiler
+    from origin.lexer import lex
+    from origin.parser import Parser
+    from origin.bc.to_byte import Compiler
 
     code_lines = [line.rstrip("\n") for line in open(src, "r", encoding="utf-8")]
     tokens = lex(code_lines)

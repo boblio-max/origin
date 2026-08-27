@@ -87,7 +87,11 @@ class sVM:
             elif opcode == OpCode.ADD:
                 b = self.stack.pop()
                 a = self.stack.pop()
-                self.stack.append(a + b)
+                # Mirror interpreter.py:205 smart concat: str + any -> str concat
+                if isinstance(a, str) or isinstance(b, str):
+                    self.stack.append(str(a) + str(b))
+                else:
+                    self.stack.append(a + b)
 
             elif opcode == OpCode.SUB:
                 b = self.stack.pop()
@@ -196,7 +200,15 @@ class sVM:
 
             elif opcode == OpCode.PRINT:
                 val = self.stack.pop()
-                print(val)
+                # Mirror interpreter.py:309 multi-arg print unpack for Tuple/List
+                if isinstance(val, (list, tuple)):
+                    # Heuristic: if val came from TupleNode/ListNode used as print args, unpack with spaces
+                    # This matches interpreter's `print(a,b)` -> `print(arg1, arg2)` not `print([arg1,arg2])`
+                    # We distinguish by checking if all elements are not nested collections? For now unpack.
+                    # To preserve explicit list printing, interpreter also unpacks - so we follow it.
+                    print(*val)
+                else:
+                    print(val)
 
             elif opcode == OpCode.INPUT:
                 prompt = self.stack.pop()
@@ -609,13 +621,20 @@ class sVM:
             self.variables[name] = val
         elif opcode == OpCode.PRINT:
             val = self.stack.pop()
-            print(val)
+            if isinstance(val, (list, tuple)):
+                print(*val)
+            else:
+                print(val)
         elif opcode == OpCode.POP:
             self.stack.pop()
         elif opcode == OpCode.DUP:
             self.stack.append(self.stack[-1])
         elif opcode == OpCode.ADD:
-            b = self.stack.pop(); a = self.stack.pop(); self.stack.append(a + b)
+            b = self.stack.pop(); a = self.stack.pop()
+            if isinstance(a, str) or isinstance(b, str):
+                self.stack.append(str(a) + str(b))
+            else:
+                self.stack.append(a + b)
         elif opcode == OpCode.SUB:
             b = self.stack.pop(); a = self.stack.pop(); self.stack.append(a - b)
         elif opcode == OpCode.MUL:

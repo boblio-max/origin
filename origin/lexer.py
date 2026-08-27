@@ -21,13 +21,13 @@ TOKEN_REGEX = [
     (r"\d+",                 "INT"),      # Integer numbers
     (r"[fF]\".*?\"|[fF]'.*?'", "FSTRING"), # Formatted f-strings
     (r"\".*?\"|'.*?'",       "STRING"),   # String literals
-    (r"===|!==|==|!=|<=|>=|<>|<|>", "COMP"), # Comparison operators
     (r"\&\&|\|\||\b(and|or|not)\b|!", "LOGIC"),    # Logical operators
     (r"\+\+|\-\-",           "UNARY"),    # Unary operators
-    (r"\+=|\-=|\*=|\/=|\%=|\*\*=|\/\/=|&=|\|=", "ASSIGN_OP"), # Compound assignment operators
+    (r"\+=|\-=|\*=|\/=|\%=|\*\*=|\/\/=|&=|\|=|\^=|<<=|>>=", "ASSIGN_OP"), # Compound assignment operators
+    (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>|~", "ARITH"), # Arithmetic and bitwise operators
+    (r"===|!==|==|!=|<=|>=|<>|<|>", "COMP"), # Comparison operators
     (r"\?\?|->|=>|<=>|::",   "SPECIAL"),  # Special operators
     (r"=",                   "ASSIGN"),   # Assignment operator
-    (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>", "ARITH"), # Arithmetic and bitwise operators
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
     (r"\b(none|if|elif|else|for|to|while|write|pi|with|return|py|int|run|read|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|abs|floor|ceil|append|address|accel|gyro|temp|break|input|skip|continue|def|func|import|from|class|try|call|except|set|ifinstance|pass|as|bool|parallel|range|self|command)\b", "KEYWORD"), # Reserved keywords

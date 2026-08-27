@@ -4,13 +4,13 @@ import java.io.IOException;
 
 /**
  * CLI entry point. Usage:
- *   java -cp . ORIGIN_CODE.bc.Main program.obc
+ *   java -cp . origin.bc.JavaImplement.Main program.obc
  */
 public final class Main {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("usage: java -cp . ORIGIN_CODE.bc.Main <program.obc>");
+            System.err.println("usage: java -cp . origin.bc.JavaImplement.Main <program.obc>");
             System.exit(2);
         }
         String path = args[0];

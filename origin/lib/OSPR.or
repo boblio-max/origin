@@ -1,0 +1,24 @@
+let _OSPR = none
+
+py {
+    import sys, os
+    for _c in [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ORIGIN_CODE', 'lib'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'),
+        os.path.join(os.getcwd(), 'ORIGIN_CODE', 'lib'),
+        os.path.join(os.getcwd(), 'lib'),
+    ]:
+        if os.path.isfile(os.path.join(_c, 'ospr.py')):
+            if _c not in sys.path:
+                sys.path.insert(0, _c)
+            break
+    from ospr import ospr as _OSPR
+}
+
+def apply_ospr(model) {
+    py { return _OSPR.apply_ospr(model) }
+}
+
+def ospr_param_count(model) {
+    py { return _OSPR.param_count(model) }
+}

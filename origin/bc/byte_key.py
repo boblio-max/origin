@@ -68,7 +68,7 @@ class OpCode:
     APPEND_FILE  = 0x43
     HARDWARE_CALL= 0x44
     SET_SERVO    = 0x45
-    SET_PIN     = 0x46
+    SET_PIN      = 0x46
     PARALLEL_START=0x47
     PARALLEL_END = 0x48
     EXEC_PY      = 0x49
@@ -79,3 +79,4 @@ class OpCode:
     ABS          = 0x4E
     FLOOR        = 0x4F
     CEIL         = 0x50
+    CUBE         = 0x51

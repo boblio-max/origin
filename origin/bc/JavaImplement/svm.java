@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * sVM — Origin bytecode virtual machine. 1:1 port of ORIGIN_CODE/bc/svm.py.
+ * sVM — Origin bytecode virtual machine. 1:1 port of bc/svm.py.
  *
  * Stack frame layout (svm.py:49-58):
  *   bytecode[], constants[]       — from the loader

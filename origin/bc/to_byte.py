@@ -175,6 +175,10 @@ class Compiler:
             self.compile(node.node)
             if node.op == '-':
                 self.emit(OpCode.NEGATE)
+            elif node.op == '~':
+                self.emit(OpCode.BIT_NOT)
+            elif node.op == '+':
+                pass  # unary plus no-op
             elif node.op in ('not', '!'):
                 self.emit(OpCode.NOT)
 
@@ -267,7 +271,12 @@ class Compiler:
                 '/=': OpCode.DIV,
                 '//=': OpCode.FLOOR_DIV,
                 '%=': OpCode.MOD,
-                '**=': OpCode.POW
+                '**=': OpCode.POW,
+                '&=': OpCode.BIT_AND,
+                '|=': OpCode.BIT_OR,
+                '^=': OpCode.BIT_XOR,
+                '<<=': OpCode.LSHIFT,
+                '>>=': OpCode.RSHIFT
             }
             
             if node.op in op_map:
@@ -407,7 +416,6 @@ class Compiler:
             self.emit(OpCode.RETURN)
 
             self.patch_jmp(skip_jmp_idx, len(self.bytecode))
-
         elif isinstance(node, CallNode):
             for arg in node.args:
                 self.compile(arg)
@@ -534,6 +542,8 @@ class Compiler:
             handler_idx = self.emit_jmp(OpCode.SETUP_EXCEPT)
             self.compile(node.try_body)
             self.emit(OpCode.POP_EXCEPT)
+            if node.else_body:
+                self.compile(node.else_body)
             end_idx = self.emit_jmp(OpCode.JMP)
             self.patch_jmp(handler_idx, len(self.bytecode))
             for exc_body in node.except_body:
@@ -664,6 +674,56 @@ class Compiler:
 
         elif isinstance(node, PyNode):
             idx = self.add_constant(node.code)
+            self.emit(OpCode.PUSH_CONST, idx)
+            self.emit(OpCode.EXEC_PY)
+        
+        elif isinstance(node, ImuNode):
+            # Mirror interpreter.py:360 - handled via EXEC_PY to import and instantiate
+            code = f"from {node.name} import {node.name}\n__imu_tmp = {node.name}({node.address})"
+            idx = self.add_constant(code)
+            self.emit(OpCode.PUSH_CONST, idx)
+            self.emit(OpCode.EXEC_PY)
+            # Push the created instance onto stack for expression use
+            tmp_idx = self.add_constant("__imu_tmp")
+            self.emit(OpCode.LOAD_VAR, tmp_idx)
+
+        elif isinstance(node, ImuFromNode):
+            # Mirror interpreter.py:363 - node.value is sensor (accel/gyro/temp), node.name is device var
+            tmp_code = f"__imu_from_tmp = {node.name}.get_{node.value}()"
+            idx2 = self.add_constant(tmp_code)
+            self.emit(OpCode.PUSH_CONST, idx2)
+            self.emit(OpCode.EXEC_PY)
+            tmp_idx = self.add_constant("__imu_from_tmp")
+            self.emit(OpCode.LOAD_VAR, tmp_idx)
+
+        elif isinstance(node, ExecNode):
+            # Mirror interpreter.py:119 - run Origin code via runner.py subprocess
+            # Generate Python code that host EXEC_PY will exec
+            runner_code = (
+                "import os, sys, subprocess\n"
+                f"runner_path = os.path.join(os.path.dirname({repr(__file__)}), 'runner.py')\n"
+                f"open('temp_exec.py','w',encoding='utf-8').write({repr(node.code)})\n"
+                "subprocess.run([sys.executable, runner_path, 'temp_exec.py'])"
+            )
+            idx = self.add_constant(runner_code)
+            self.emit(OpCode.PUSH_CONST, idx)
+            self.emit(OpCode.EXEC_PY)
+
+        elif isinstance(node, CommandNode):
+            # Mirror interpreter.py:504 - subprocess.run(cmd.split(), **flags)
+            cmd = node.command
+            if hasattr(cmd, 'value'):
+                cmd = cmd.value
+            if isinstance(cmd, str) and len(cmd) >= 2 and cmd[0] in ('"', "'") and cmd[-1] == cmd[0]:
+                cmd = cmd[1:-1]
+            flags = getattr(node, 'flags', getattr(node, 'params', None))
+            # Generate Python code string and exec via EXEC_PY (reuses svm.py:514)
+            if isinstance(flags, dict) and flags:
+                kwargs = ", ".join(f"{k}={repr(v)}" for k, v in flags.items())
+                code = f"__import__('subprocess').run({repr(cmd)}.split(), {kwargs})"
+            else:
+                code = f"__import__('subprocess').run({repr(cmd)}.split())"
+            idx = self.add_constant(code)
             self.emit(OpCode.PUSH_CONST, idx)
             self.emit(OpCode.EXEC_PY)
             
