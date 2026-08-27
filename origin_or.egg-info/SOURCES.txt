@@ -15,12 +15,14 @@ origin/bc/dump_obc.py
 origin/bc/helpers.py
 origin/bc/svm.py
 origin/bc/to_byte.py
+origin/lib/OSPR.or
 origin/lib/__init__.py
 origin/lib/calc.or
 origin/lib/graph.or
 origin/lib/gui.or
 origin/lib/gui.py
 origin/lib/lora.py
+origin/lib/ospr.py
 origin/lib/transformer.or
 origin/lib/transformer.py
 origin_or.egg-info/PKG-INFO
