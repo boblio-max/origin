@@ -896,8 +896,13 @@ class Parser:
                 lib = self.eat(self.current_token().type).value
                 self.eat("KEYWORD") # import
                 # Allow keywords as imported names
-                name = self.eat(self.current_token().type).value
-                return ImportFromNode(name, lib)
+                lib_names = []
+                if tok.type == "ARITH":
+                    while tok.type == "NEWLINE":
+                        lib_names.append(self.eat(self.current_token().type).value)
+                else:
+                    lib_names.append(self.eat(self.current_token().type).value)
+                return ImportFromNode(lib, lib_names)
 
             if tok.value == "return":
                 self.eat("KEYWORD")

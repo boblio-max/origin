@@ -428,7 +428,7 @@ class Interpreter:
             return f"import {node.name} as {node.alias}"
 
         elif isinstance(node, ImportFromNode):
-            return f"from {node.lib} import {node.name}"
+            return f"from {node.name} import {node.lib}"
 
         elif isinstance(node, ReturnNode):
             return f"return {self.generate(node.value)}"

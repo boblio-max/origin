@@ -6,11 +6,13 @@ from .runner import run_origin
 
 def main():
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.21")
+        print("Origin Programming Language v1.7.22")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)
 
+    if sys.argv[1] in ("cli","--cli","repl"):
+        
     if sys.argv[1] == "i":
         if len(sys.argv) < 3:
             print("Usage: origin i <file.or>")

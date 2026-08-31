@@ -468,10 +468,10 @@ class ImportNode(ASTNode):
 
 class ImportFromNode(ASTNode):
     """'from ... import' statement."""
-    def __init__(self, name, library):
+    def __init__(self, name, libraries):
         super().__init__()
         self.name = name
-        self.lib = library
+        self.lib = ", ".join(libraries)
     def __repr__(self):
         return f"ImportFromNode({self.name}, {self.lib})"
 

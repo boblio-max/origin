@@ -574,12 +574,14 @@ class Compiler:
                 self.emit(OpCode.STORE_VAR, var_idx)
 
         elif isinstance(node, ImportFromNode):
-            mod = __import__(node.lib, fromlist=[node.name])
-            attr = getattr(mod, node.name)
-            idx = self.add_constant(attr)
-            self.emit(OpCode.PUSH_CONST, idx)
-            var_idx = self.add_constant(node.name)
-            self.emit(OpCode.STORE_VAR, var_idx)
+            mod = __import__(node.name, fromlist=[node.name])
+            libs = node.lib.split(", ")
+            for i in libs:
+                attr = getattr(mod, i)
+                idx = self.add_constant(attr)
+                self.emit(OpCode.PUSH_CONST, idx)
+                var_idx = self.add_constant(i)
+                self.emit(OpCode.STORE_VAR, var_idx)
 
         elif isinstance(node, ImportAsNode):
             idx = self.add_constant(node.name)
