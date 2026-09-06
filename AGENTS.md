@@ -23,7 +23,7 @@ origin is the v1.7.5 reference implementation of the Origin programming language
 
 ## Verification Criteria
 
-Before claiming any task done, Claude MUST:
+Before claiming any task done, you MUST:
 1. Run `python -c "from runner import run_origin; from interpreter import Interpreter; from lexer import lex; from parser import Parser"` to confirm core modules import.
 2. Confirm `pip install -r requirements.txt` succeeds (on Windows, expect `RPi.GPIO` to fail — that is acceptable on non-Pi dev boxes; document the skip in the final report).
 3. Boot `python runner.py` against a small example Origin file (e.g. a `print` statement) and confirm it executes.
