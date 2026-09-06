@@ -1,14 +1,14 @@
-﻿# Origin Programming Language Â· v1.7.24
+﻿# Origin Programming Language Â· v1.7.25
 
 [![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)
-[![Version](https://img.shields.io/badge/Version-v1.7.24-blue?style=flat-square)](https://docs-origin.onrender.com)
+[![Version](https://img.shields.io/badge/Version-v1.7.25-blue?style=flat-square)](https://docs-origin.onrender.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
 
 **Origin** is a Python/Java-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
 
 > **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
 
-> **September 2026 re-issue:** The v1.7.24 release ports latest runtime improvements from dev, including refined bytecode VM and interpreter stability, and retains v1.7.23's multi-import and transformer library updates. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
+> **September 2026 re-issue:** The v1.7.25 release normalizes the flat-layout imports across the toolchain (parser, interpreter, bytecode VM), fixing the `attempted relative import with no known parent package` error that made the CLI unusable, and retains v1.7.24's bytecode VM and interpreter stability plus v1.7.23's multi-import and transformer library updates. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
 
 ---
 
@@ -30,7 +30,7 @@
 ### Standalone (Recommended)
 You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
 
-1. **Download**: [Origin v1.7.24 Stable](https://docs-origin.onrender.com/download.html)
+1. **Download**: [Origin v1.7.25 Stable](https://docs-origin.onrender.com/download.html)
 2. **Install**: Run `secure_install.ps1` with PowerShell.
 3. **Usage**: Open a new terminal and type `origin`.
 

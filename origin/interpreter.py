@@ -14,7 +14,7 @@ import os
 import subprocess
 from multiprocessing import Process
 from pathlib import Path
-from .classes import *
+from classes import *
 from lexer import lex
 from parser import Parser
 class Interpreter:

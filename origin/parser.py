@@ -10,7 +10,7 @@ constructs an Abstract Syntax Tree (AST) comprised of node classes from
 import sys
 import textwrap
 from lexer import lex, Token
-from .classes import *
+from classes import *
 from errors import ParseError
 
 

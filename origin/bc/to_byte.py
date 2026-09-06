@@ -3,7 +3,7 @@ import csv
 import math
 import sys
 from pathlib import Path
-from .classes import *
+from classes import *
 from lexer import lex
 from parser import Parser
 from bc.byteKey import OpCode
