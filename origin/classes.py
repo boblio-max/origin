@@ -1,4 +1,4 @@
-"""AST node definitions
+﻿"""AST node definitions
 
 This module defines the Abstract Syntax Tree (AST) node classes used by the
 parser and interpreter. Each node class represents a single syntactic
@@ -468,10 +468,10 @@ class ImportNode(ASTNode):
 
 class ImportFromNode(ASTNode):
     """'from ... import' statement."""
-    def __init__(self, name, libraries):
+    def __init__(self, name, lib):
         super().__init__()
         self.name = name
-        self.lib = ", ".join(libraries)
+        self.lib = lib
     def __repr__(self):
         return f"ImportFromNode({self.name}, {self.lib})"
 
@@ -571,3 +571,4 @@ class MoveNode(ASTNode):
         self.dst = dst
     def __repr__(self):
         return f"MoveNode({self.src}, {self.dst})"
+

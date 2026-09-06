@@ -1,4 +1,4 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 public final class BoundMethod {
     public final OriginInstance instance;

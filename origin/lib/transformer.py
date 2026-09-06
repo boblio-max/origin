@@ -1,4 +1,4 @@
-import transformers as trs
+﻿import transformers as trs
 import torch as th
 import json as j
 import os
@@ -307,3 +307,5 @@ class transformer:
         self.init_trainer()
         self.train()
         print("=== Pipeline complete ===")
+
+

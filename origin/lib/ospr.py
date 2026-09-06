@@ -1,4 +1,4 @@
-"""OSPR - Opposite Seesaw Parameter Reduction.
+﻿"""OSPR - Opposite Seesaw Parameter Reduction.
 
 Replaces the dense weight matrix of a Linear (or Conv2d) layer with a set of
 seesaw angles, one per pair of weights, plus a single half-length that is
@@ -259,3 +259,5 @@ class ospr:
         total = sum(p.numel() for p in model.parameters())
         trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
         return total, trainable
+
+

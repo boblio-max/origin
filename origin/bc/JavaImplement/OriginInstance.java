@@ -1,4 +1,4 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,3 +17,4 @@ public final class OriginInstance {
         return "<" + originClass.name + " instance>";
     }
 }
+

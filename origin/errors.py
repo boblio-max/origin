@@ -1,4 +1,4 @@
-import sys
+﻿import sys
 import os
 import traceback
 import linecache
@@ -394,3 +394,4 @@ def handle_warning(message, category, filename, lineno, file=None, line=None):
 def install():
     sys.excepthook = handle_exception
     warnings.showwarning = handle_warning
+

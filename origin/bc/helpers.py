@@ -1,4 +1,4 @@
-class OriginClass:
+﻿class OriginClass:
     def __init__(self, name, fields, methods):
         self.name = name
         self.fields = fields
@@ -16,3 +16,5 @@ class BoundMethod:
     def __init__(self, instance, func_pc):
         self.instance = instance
         self.func_pc = func_pc
+
+

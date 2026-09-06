@@ -1,4 +1,4 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -82,7 +82,7 @@ public final class Loader {
             case 4: return null;
             case 5: return (long) din.readInt();
             case 6: {
-                // TUPLE — emitted by dump_obc.py for both tuple/list literals
+                // TUPLE â€” emitted by dump_obc.py for both tuple/list literals
                 // and for the flat [key, value, ...] representation of dicts
                 // used by MAKE_CLASS's methods table.
                 int n = din.readInt();

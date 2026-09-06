@@ -1,12 +1,12 @@
-import random
+﻿import random
 import csv
 import math
 import sys
 from pathlib import Path
-from ..classes import *
-from ..lexer import lex
-from ..parser import Parser
-from .byte_key import OpCode
+from .classes import *
+from lexer import lex
+from parser import Parser
+from bc.byteKey import OpCode
 
 class Compiler:
     def __init__(self):
@@ -76,6 +76,11 @@ class Compiler:
         if isinstance(node, ProgramNode) or isinstance(node, BlockNode):
             for stmt in node.statements:
                 self.compile(stmt)
+                # If the statement is a standalone call (e.g. `list.append(x)`),
+                # its return value (often None) is left on the stack. Pop it so
+                # the stack stays clean for subsequent FOR_ITER handling.
+                if isinstance(stmt, CallNode):
+                    self.emit(OpCode.POP)
 
         elif isinstance(node, NumberNode):
             idx = self.add_constant(node.value)
@@ -110,7 +115,7 @@ class Compiler:
 
             if node.type is not None:
                 # Declaration with explicit type (let x: int = ...)
-                if value_type is not None and value_type != node.type:
+                if value_type is not None and value_type != node.type and node.type != "any" and value_type != "any":
                      raise TypeError(f"Type Mismatch: variable '{node.name}' declared as {node.type} but assigned {value_type}")
                 self.variable_types[node.name] = node.type
             elif node.name not in self.variable_types:
@@ -143,7 +148,7 @@ class Compiler:
                 value_type = value_types[i]
                 annotation = annotations[i] if i < len(annotations) else None
                 if annotation is not None:
-                    if value_type is not None and value_type != annotation:
+                    if value_type is not None and value_type != annotation and annotation != "any" and value_type != "any":
                         raise TypeError(f"Type Mismatch: variable '{name}' declared as {annotation} but assigned {value_type}")
                     self.variable_types[name] = annotation
                 elif name not in self.variable_types:
@@ -574,9 +579,11 @@ class Compiler:
                 self.emit(OpCode.STORE_VAR, var_idx)
 
         elif isinstance(node, ImportFromNode):
-            mod = __import__(node.name, fromlist=[node.name])
-            libs = node.lib.split(", ")
-            for i in libs:
+            mod = __import__(node.lib, fromlist=node.name.split(", "))
+            for i in node.name.split(", "):
+                i = i.strip()
+                if not i:
+                    continue
                 attr = getattr(mod, i)
                 idx = self.add_constant(attr)
                 self.emit(OpCode.PUSH_CONST, idx)
@@ -756,3 +763,5 @@ class Compiler:
                         self.bytecode[opcode_idx] = OpCode.LOAD_VAR
                     else:
                         raise NameError(f"Function '{func_name}' is not defined")
+
+

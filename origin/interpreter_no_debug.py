@@ -1,9 +1,6 @@
-﻿"""interpreter
+﻿"""interpreter_no_debug
 
-AST-to-Python translator and execution helpers.
-
-This module implements a small interpreter that traverses the AST produced by
-``parser.Parser`` and emits executable Python source strings.
+AST-to-Python translator (no runtime line tracking).
 """
 
 import random
@@ -22,14 +19,13 @@ class Interpreter:
 
     def __init__(self):
         self.variable_types = {}
-        # Internal tracking (optional, could be moved to a flag)
         self.CONST_VARS = {}
         self.imports = []
         self.classes = {}
         self.original_imports = {}
-        # Track whether we're generating code inside a class body
         self._class_depth = 0
         self._module_vars = set()
+        self._func_depth = 0
 
     def _collect_module_vars(self, node):
         """First pass: collect all variable names declared at module level."""
@@ -78,8 +74,8 @@ class Interpreter:
         elif isinstance(node, ParallelNode):
             result |= self._get_global_vars_in_func(node.body)
         return result
+
     def get_type(self, node):
-        """Infer the type of an AST node."""
         if hasattr(node, 'type') and node.type is not None:
             return node.type
         if isinstance(node, VarNode):
@@ -93,15 +89,8 @@ class Interpreter:
         return None
 
     def generate(self, node):
-        """Recursively translate an AST node into Python source text."""
         if node is None:
             return ""
-
-        # Inject line tracking for statements (nodes that have a line attribute)
-        line_marker = ""
-        if hasattr(node, 'line') and node.line is not None:
-            # We use a global to track the current line so it survives inside functions
-            line_marker = f"globals()['_origin_runtime_line'] = {node.line}\n"
 
         if isinstance(node, ProgramNode):
             self._collect_module_vars(node)
@@ -109,15 +98,11 @@ class Interpreter:
 
         elif isinstance(node, BlockNode):
             return "\n".join(self.generate(stmt) for stmt in node.statements)
-            
-        # Add the line marker to the generated code for other nodes
-        res = self._generate_core(node)
-        return line_marker + res
+
+        return self._generate_core(node)
 
     def _generate_core(self, node):
-        """The actual generation logic, separated from the line tracking wrapper."""
         if isinstance(node, ExecNode):
-            # Fragile but kept for compatibility - improved to use absolute paths
             runner_path = os.path.join(os.path.dirname(__file__), "runner.py")
             temp_file = "temp_exec.py"
             with open(temp_file, "w", encoding="utf-8") as f:
@@ -135,24 +120,18 @@ class Interpreter:
             if node.name in self.CONST_VARS:
                 raise RuntimeError(f"Cannot reassign constant '{node.name}'")
 
-            # Infer the type of the assigned value
             val_type = self.get_type(node.value)
 
-            # If an explicit type annotation exists and differs from inferred, attempt to cast
-            if node.type and val_type and node.type != val_type and node.type != "any" and val_type != "any":
-                # Simple casting based on annotation name (int, float, str, bool)
+            if node.type and val_type and node.type != val_type:
                 try:
-                    # Use the cast function directly in generated code
                     casted_expr = f"{node.type}({self.generate(node.value)})"
                     assign_code = f"{node.name} = {casted_expr}"
                 except Exception:
-                    # If casting fails, fall back to using the inferred value without casting
                     assign_code = f"{node.name} = {self.generate(node.value)}"
                     node.type = val_type
             else:
                 assign_code = f"{node.name} = {self.generate(node.value)}"
 
-            # Record variable type information for later use
             if node.type:
                 self.variable_types[node.name] = node.type
             elif val_type:
@@ -175,7 +154,7 @@ class Interpreter:
                 val_type = self.get_type(value)
                 annotation = annotations[i] if i < len(annotations) else None
                 code = self.generate(value)
-                if annotation and val_type and annotation != val_type and annotation != "any" and val_type != "any":
+                if annotation and val_type and annotation != val_type:
                     code = f"{annotation}({code})"
                 if annotation:
                     self.variable_types[name] = annotation
@@ -189,7 +168,7 @@ class Interpreter:
                 raise RuntimeError(f"Cannot reassign constant '{node.name}'")
             val_str = self.generate(node.value)
             val_type = self.get_type(node.value)
-            if node.type and val_type and node.type != val_type and node.type != "any" and val_type != "any":
+            if node.type and val_type and node.type != val_type:
                 raise TypeError(f"Type Mismatch: {node.name} is {node.type} but got {val_type}")
             if node.type:
                 self.variable_types[node.name] = node.type
@@ -203,7 +182,6 @@ class Interpreter:
 
         elif isinstance(node, BinOpNode):
             if node.op == "+":
-                # Smart Concatenation: if either side is a string, treat as string concat
                 left = self.generate(node.left)
                 right = self.generate(node.right)
                 return f"(str({left}) + str({right})) if isinstance({left}, str) or isinstance({right}, str) else ({left} + {right})"
@@ -215,7 +193,6 @@ class Interpreter:
             return f"({node.op}{self.generate(node.node)})"
 
         elif isinstance(node, LogicOpNode):
-            # Map Origin logic operators to Python
             op_map = {"and": "and", "or": "or", "&&": "and", "||": "or"}
             py_op = op_map.get(node.op, node.op)
             return f"({self.generate(node.left)} {py_op} {self.generate(node.right)})"
@@ -261,7 +238,6 @@ class Interpreter:
                 else:
                     params.append(p)
             params = ", ".join(params) if params else ""
-            # If inside a class, ensure 'self' is the first parameter (unless already declared)
             if getattr(self, "_class_depth", 0) > 0 and (not node.params or node.params[0] != "self"):
                 params = "self" if not params else "self, " + params
             code = f"def {node.name}({params}):\n"
@@ -274,7 +250,6 @@ class Interpreter:
             return code
 
         elif isinstance(node, ClassNode):
-            # Make fields optional by defaulting to None, with type annotations when given
             params = []
             for f in node.fields:
                 ftype = (node.field_types or {}).get(f)
@@ -284,18 +259,15 @@ class Interpreter:
                     params.append(f"{f}=None")
             params = ", ".join(params)
             code = f"class {node.name}:\n"
-            # Body of __init__ must be indented further (8 spaces total)
             init_body = "\n".join(f"        self.{f} = {f}" for f in node.fields) or "        pass"
             init_sig = ("self, " + params) if params else "self"
             code += f"    def __init__({init_sig}):\n{init_body}\n"
-            # Generate class body with class-depth tracking so methods get 'self'
             self._class_depth += 1
             body_code = self.generate(node.body)
             self._class_depth -= 1
             code += self.indent_block(body_code)
             return code
 
-        
         elif isinstance(node, CallNode):
             args = ", ".join(self.generate(arg) for arg in node.args)
             return f"{self.generate(node.callee)}({args})"
@@ -307,7 +279,6 @@ class Interpreter:
             return f"{self.generate(node.obj)}.{node.attr} = {self.generate(node.value)}"
 
         elif isinstance(node, PrintNode):
-            # Support multiple print arguments (TupleNode or ListNode) without printing a tuple
             expr = node.expr
             if isinstance(expr, TupleNode) or isinstance(expr, ListNode):
                 args = ", ".join(self.generate(e) for e in expr.elements)
@@ -321,7 +292,6 @@ class Interpreter:
             return repr(node.value)
 
         elif isinstance(node, FormattedStringNode):
-            # Emit concatenation of parts, converting expressions to str()
             parts = []
             for p in node.parts:
                 if isinstance(p, StringNode):
@@ -359,10 +329,10 @@ class Interpreter:
 
         elif isinstance(node, ImuNode):
             return f"{node.name}({node.address})"
-        
+
         elif isinstance(node, ImuFromNode):
             return f"{node.name}.get_{node.value}()"
-        
+
         elif isinstance(node, ParallelNode):
             code = ""
             code += "import threading\n"
@@ -374,7 +344,6 @@ class Interpreter:
                 code += "    t = threading.Thread(target=_parallel_block)\n"
                 code += "    t.start(); _threads.append(t)\n"
             else:
-                # Parallelize each statement in the block
                 for i, stmt in enumerate(node.body.statements):
                     code += f"def _parallel_stmt_{i}():\n"
                     code += self.indent_block(self.generate(stmt))
@@ -412,19 +381,27 @@ class Interpreter:
             or_path = lib_dir / f"{node.name}.or"
             py_path = lib_dir / f"{node.name}.py"
             if or_path.exists():
-                lib_path = str(lib_dir).replace("\\", "\\\\")
-                preamble = f"import sys as _sys\nif r'{lib_path}' not in _sys.path:\n    _sys.path.insert(0, r'{lib_path}')\n"
+                lib_path_str = str(lib_dir).replace("\\", "\\\\")
                 with open(or_path, encoding="utf-8") as f:
                     code = [line.rstrip("\n") for line in f]
                 _lex = lex(code)
                 _parse = Parser(_lex).program()
-                return preamble + self.generate(_parse)
+                return f"import sys; sys.path.insert(0, r'{lib_dir}')\n" + self.generate(_parse)
             elif py_path.exists():
                 return f"exec(open({str(py_path)!r}).read())"
             else:
                 return f"import {node.name}"
 
         elif isinstance(node, ImportAsNode):
+            lib_dir = Path(__file__).resolve().parent / "lib"
+            or_path = lib_dir / f"{node.name}.or"
+            if or_path.exists():
+                with open(or_path, encoding="utf-8") as f:
+                    code = [line.rstrip("\n") for line in f]
+                _lex = lex(code)
+                _parse = Parser(_lex).program()
+                inlined = self.generate(_parse)
+                return f"{inlined}\n{node.alias} = {node.name}" if node.name in self._module_vars else inlined
             return f"import {node.name} as {node.alias}"
 
         elif isinstance(node, ImportFromNode):
@@ -452,10 +429,11 @@ class Interpreter:
 
         elif isinstance(node, SpecialOpNode):
             if node.op == "??":
-                left = self.generate(node.left)
-                right = self.generate(node.right)
-                return f"(lambda _v: _v if _v is not None else ({right}))({left})"
-                
+                if node.left is not None:
+                    return node.left
+                else:
+                    return node.right
+
         elif isinstance(node, HardwarePrimitiveNode):
             args = ", ".join(self.generate(arg) for arg in node.args)
             return f"_execute_{node.namespace}_{node.method}({args})"
@@ -470,26 +448,21 @@ class Interpreter:
                 return f"open({repr(node.file_name)}).read()"
             else:
                 return f"open({repr(node.file_name)}).read({node.count})"
-        
+
         elif isinstance(node, WriteNode):
             fname = node.file[1:-1] if node.file[:1] in ('"', "'") else node.file
             content = self.generate(node.contents)
             return f"open({repr(fname)}, 'w').write({content})"
-        
+
         elif isinstance(node, AppendNode):
-            fname = node.file[1:-1] if node.file[:1] in ('"', "'") else node.file
-            content = self.generate(node.contents)
-            return f"open({repr(fname)}, 'a').write({content})"
-        
+            content = self.generate(node.content)
+            return f"open({repr(node.file_name)}, 'a').write({content})"
+
         elif isinstance(node, LenNode):
             return f"len({self.generate(node.value)})"
 
         elif isinstance(node, SqrtNode):
             return f"math.sqrt({self.generate(node.value)})"
-
-        elif isinstance(node, MathNode):
-            py_func = {"abs": "abs", "floor": "math.floor", "ceil": "math.ceil"}.get(node.func, node.func)
-            return f"{py_func}({self.generate(node.value)})"
 
         elif isinstance(node, RandNumNode):
             return f"random.randint({self.generate(node.start)}, {self.generate(node.end)})"
@@ -500,22 +473,7 @@ class Interpreter:
         elif isinstance(node, InputNode):
             prompt = self.generate(node.prompt) if node.prompt else ""
             return f"input({prompt})"
-        
-        elif isinstance(node, CommandNode):
-            # Generate Python code that runs at runtime, not at compile time.
-            # Handle both str and Token storage for command (with or without quotes)
-            cmd = node.command
-            if hasattr(cmd, 'value'):
-                cmd = cmd.value
-            if isinstance(cmd, str) and len(cmd) >= 2 and cmd[0] in ('"', "'") and cmd[-1] == cmd[0]:
-                cmd = cmd[1:-1]
-            # flags may be stored as .flags or legacy .params
-            flags = getattr(node, 'flags', getattr(node, 'params', None))
-            # If flags is a dict, expand as kwargs; BlockNode/list flags are ignored for now
-            if isinstance(flags, dict) and flags:
-                kwargs = ", ".join(f"{k}={repr(v)}" for k, v in flags.items())
-                return f"__import__('subprocess').run({repr(cmd)}.split(), {kwargs})"
-            return f"__import__('subprocess').run({repr(cmd)}.split())"
+
         else:
             raise RuntimeError(f"Unknown node type: {type(node)}")
 
@@ -524,7 +482,6 @@ class Interpreter:
         spaces = " " * indent
         return "\n".join(spaces + line if line.strip() else line for line in code.split("\n"))
 
-# --- Hardware Runtime Helpers ---
 def _execute_set_pin(pin, state):
     try:
         import RPi.GPIO as GPIO

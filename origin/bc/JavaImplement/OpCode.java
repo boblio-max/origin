@@ -1,4 +1,4 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 public final class OpCode {
     public static final byte PUSH_CONST     = 0x01;

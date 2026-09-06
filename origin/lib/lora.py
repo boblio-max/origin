@@ -1,4 +1,4 @@
-from peft import LoraConfig
+﻿from peft import LoraConfig
 
 
 class lora:
@@ -44,3 +44,5 @@ class lora:
 
     def __repr__(self):
         return str(self.lora_config)
+
+

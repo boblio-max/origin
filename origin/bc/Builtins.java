@@ -1,4 +1,4 @@
-﻿package origin.bc.JavaImplement;
+﻿package origin.bc;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,8 +46,8 @@ public final class Builtins {
             Object pathOrFile = args.get(0);
             Object content = args.get(1);
             String contentStr = String.valueOf(content);
-            if (pathOrFile instanceof OpenFile) {
-                ((OpenFile) pathOrFile).writeAll(contentStr);
+            if (pathOrFile instanceof OpenFile openFile) {
+                openFile.writeAll(contentStr);
                 return null;
             }
             try (java.io.FileWriter w = new java.io.FileWriter(asStr(args, 0))) {
@@ -61,8 +61,8 @@ public final class Builtins {
             Object pathOrFile = args.get(0);
             Object content = args.get(1);
             String contentStr = String.valueOf(content);
-            if (pathOrFile instanceof OpenFile) {
-                ((OpenFile) pathOrFile).appendAll(contentStr);
+            if (pathOrFile instanceof OpenFile openFile) {
+                openFile.appendAll(contentStr);
                 return null;
             }
             try (java.io.FileWriter w = new java.io.FileWriter(asStr(args, 0), true)) {

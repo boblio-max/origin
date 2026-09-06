@@ -1,4 +1,4 @@
-"""runner
+﻿"""runner
 
 Main entry point for the Origin programming language.
 Usage: origin <file.or>         # bytecode VM (default)
@@ -109,7 +109,7 @@ def run_origin(file_path, mode="vm"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.22")
+        print("Origin Programming Language v1.7.24")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)
@@ -121,3 +121,5 @@ if __name__ == "__main__":
         run_origin(sys.argv[2], mode="interp")
     else:
         run_origin(sys.argv[1], mode="vm")
+
+

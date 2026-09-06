@@ -1,12 +1,12 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 #
-# Origin Programming Language — single-command install for Raspberry Pi
+# Origin Programming Language â€” single-command install for Raspberry Pi
 #   curl -sSL https://origin.dev/install.sh | bash
 #   wget -qO- https://origin.dev/install.sh | bash
 #
 set -euo pipefail
 
-ORIGIN_VERSION="1.7.22"
+ORIGIN_VERSION="1.7.24"
 INSTALL_DIR="${ORIGIN_HOME:-$HOME/.origin}"
 BIN_DIR="$INSTALL_DIR/bin"
 PKG_DIR="$INSTALL_DIR/lib"
@@ -15,16 +15,16 @@ PKG_DIR="$INSTALL_DIR/lib"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 
 info()  { printf "${BLUE}%s${NC}\n" "$*"; }
-ok()    { printf "${GREEN}✓ %s${NC}\n" "$*"; }
-warn()  { printf "${YELLOW}⚠ %s${NC}\n" "$*"; }
-err()   { printf "${RED}✗ %s${NC}\n" "$*"; exit 1; }
+ok()    { printf "${GREEN}âœ“ %s${NC}\n" "$*"; }
+warn()  { printf "${YELLOW}âš  %s${NC}\n" "$*"; }
+err()   { printf "${RED}âœ— %s${NC}\n" "$*"; exit 1; }
 
 # --- Detect Pi ---
 ARCH=$(uname -m)
 case "$ARCH" in
     aarch64|armv7l|armv6l)  PI=1  ;;
     x86_64|amd64)           PI=0  ;;
-    *)                      warn "Untested architecture: $ARCH — proceeding anyway"; PI=0 ;;
+    *)                      warn "Untested architecture: $ARCH â€” proceeding anyway"; PI=0 ;;
 esac
 
 info "Origin v$ORIGIN_VERSION installer for $ARCH"
@@ -62,7 +62,7 @@ mkdir -p "$PKG_DIR"
 $PYTHON -m pip install --user "origin-or==$ORIGIN_VERSION" 2>/dev/null || {
     # Option C: Install directly from GitHub
     # Option C: Local pip install from the repo
-    warn "GitHub install failed — trying direct install"
+    warn "GitHub install failed â€” trying direct install"
     TMPDIR=$(mktemp -d)
     cd "$TMPDIR"
     curl -sSL "https://github.com/boblio-max/origin/archive/refs/tags/v$ORIGIN_VERSION.tar.gz" | tar xz --strip=1
@@ -77,7 +77,7 @@ sys.path.insert(0, os.path.expanduser("~/.origin/lib"))
 from origin.runner import run_origin
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.22")
+        print("Origin Programming Language v1.7.24")
         print("Usage: origin <file.or>")
         sys.exit(1)
     run_origin(sys.argv[1])

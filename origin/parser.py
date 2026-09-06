@@ -1,4 +1,4 @@
-"""parser
+﻿"""parser
 
 Recursive-descent parser for the origin language.
 
@@ -9,9 +9,9 @@ constructs an Abstract Syntax Tree (AST) comprised of node classes from
 
 import sys
 import textwrap
-from .lexer import lex, Token
+from lexer import lex, Token
 from .classes import *
-from .errors import ParseError
+from errors import ParseError
 
 
 class Parser:
@@ -173,15 +173,20 @@ class Parser:
             if tok.value == "range":
                 self.eat("KEYWORD")
                 self._expect_symbol("(")
-                start = self._cast_or_none(self.special_expr())
-                self._expect_symbol(",")
-                end = self._cast_or_none(self.special_expr())
-                step = None
+                first = self._cast_or_none(self.special_expr())
+                # Support both `range(n)` (single arg) and `range(start, end)` forms
                 if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
                     self.eat("SYMBOL")
-                    step = self._cast_or_none(self.special_expr())
-                self._expect_symbol(")")
-                return RangeNode(start, end, step)
+                    second = self._cast_or_none(self.special_expr())
+                    step = None
+                    if self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                        self.eat("SYMBOL")
+                        step = self._cast_or_none(self.special_expr())
+                    self._expect_symbol(")")
+                    return RangeNode(first, second, step)
+                else:
+                    self._expect_symbol(")")
+                    return RangeNode(NumberNode(0, "int"), first, None)
             
             if tok.value == "abs":
                 self.eat("KEYWORD")
@@ -285,7 +290,10 @@ class Parser:
                 while True:
                     if self.current_token().type == "SYMBOL" and self.current_token().value == ".":
                         self.eat("SYMBOL")
-                        attr_name = self.eat("IDENT").value
+                        # Allow keywords as attribute names (e.g. self.func where func is keyword)
+                        if self.current_token().type not in ("IDENT", "KEYWORD"):
+                            raise self._error(f"Expected attribute name after '.', got {self.current_token().type} ({self.current_token().value})")
+                        attr_name = self.eat(self.current_token().type).value
                         node = AttributeNode(node, attr_name)
                     elif self.current_token().type == "SYMBOL" and self.current_token().value == "(":
                         self.eat("SYMBOL")
@@ -293,7 +301,7 @@ class Parser:
                         self.skip_newlines()
                         if not (self.current_token().type == "SYMBOL" and self.current_token().value == ")"):
                             args.append(self._cast_or_none(self.special_expr()))
-                            while self.current_token().type == ",":
+                            while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
                                 self.eat("SYMBOL")
                                 args.append(self._cast_or_none(self.special_expr()))
                         self.eat("SYMBOL")
@@ -303,20 +311,29 @@ class Parser:
                 return node
             
             if tok.value in ("int", "str", "float", "bool"):
-                func_name = self.eat("KEYWORD").value
-                self.eat("SYMBOL")  # (
-                arg = self.special_expr()
-                self.eat("SYMBOL")  # )
-                return CastNode(func_name, arg)
+                # Only treat as CastNode if followed by `(` (e.g. `int(x)`); otherwise it's a type reference (e.g. `isinstance(x, int)`)
+                if self.pos + 1 < len(self.tokens) and self.tokens[self.pos + 1].type == "SYMBOL" and self.tokens[self.pos + 1].value == "(":
+                    func_name = self.eat("KEYWORD").value
+                    self.eat("SYMBOL")  # (
+                    arg = self.special_expr()
+                    self.eat("SYMBOL")  # )
+                    return CastNode(func_name, arg)
+                else:
+                    # Treat as plain identifier (type reference)
+                    return VarNode(self.eat("KEYWORD").value, None)
 
-        if tok.type == "IDENT":
+        if tok.type == "IDENT" or tok.type == "KEYWORD":
             # Look ahead for lambda syntax: identifier => expression
             if self.pos + 1 < len(self.tokens):
                 next_tok = self.tokens[self.pos + 1]
                 if next_tok.type == "SPECIAL" and next_tok.value == "=>":
                     return self.lambda_expr()
 
-            name = self.eat("IDENT").value
+            # Allow keywords as identifiers for variable references (e.g. `func` param name)
+            if tok.type == "KEYWORD":
+                name = self.eat("KEYWORD").value
+            else:
+                name = self.eat("IDENT").value
             
             # Hardware primitives
             if name in ("i2c", "spi", "uart") and self.current_token().type == "SYMBOL" and self.current_token().value == ".":
@@ -378,8 +395,9 @@ class Parser:
                     # Support non-parenthesized method call syntax: `obj.method arg`
                     # Optionally allow a type annotation after the argument: `obj.method 3:int`
                     # Only treat as a call when the next token can start an expression.
+                    # NOTE: `[` and `{` are excluded to avoid consuming index/dict literals as call args.
                     nxt = self.current_token()
-                    if nxt.type in ("INT", "HEX", "FLOAT", "STRING", "IDENT") or (nxt.type == "BRACKET" and nxt.value in ("[", "{")):
+                    if nxt.type in ("INT", "HEX", "FLOAT", "STRING", "IDENT"):
                         # Parse a single expression as the argument
                         arg = self.special_expr()
                         # Optional type annotation after the arg: ':' TYPE
@@ -808,6 +826,10 @@ class Parser:
                         ptype = self._parse_type_annotation(allow_ident=True)
                         if ptype:
                             param_types[pname] = ptype
+                        # Optional default value `= <expr>` (e.g. `indent=4`, `mode="vm"`)
+                        if self.current_token().type == "ASSIGN" and self.current_token().value == "=":
+                            self.eat("ASSIGN")
+                            self.special_expr()
                     else:
                             raise self._error("Expected parameter name in function definition")
                     while self.current_token().value == ",":
@@ -819,6 +841,9 @@ class Parser:
                             ptype = self._parse_type_annotation(allow_ident=True)
                             if ptype:
                                 param_types[pname] = ptype
+                            if self.current_token().type == "ASSIGN" and self.current_token().value == "=":
+                                self.eat("ASSIGN")
+                                self.special_expr()
                         else:
                             raise self._error("Expected parameter name in function definition")
                 self.eat("SYMBOL") # )
@@ -883,8 +908,11 @@ class Parser:
 
             if tok.value == "import":
                 self.eat("KEYWORD")
-                # Allow keywords as module names
+                # Allow keywords as module names and dotted paths (e.g. bc.byte_key)
                 name = self.eat(self.current_token().type).value
+                while self.current_token().type == "SYMBOL" and self.current_token().value == ".":
+                    self.eat("SYMBOL")
+                    name += "." + self.eat(self.current_token().type).value
                 if self.current_token().value == "as":
                     self.eat("KEYWORD")
                     alias = self.eat("IDENT").value
@@ -893,20 +921,42 @@ class Parser:
 
             if tok.value == "from":
                 self.eat("KEYWORD")
+                # Module name may be dotted (e.g. bc.byte_key)
                 lib = self.eat(self.current_token().type).value
+                while self.current_token().type == "SYMBOL" and self.current_token().value == ".":
+                    self.eat("SYMBOL")
+                    lib += "." + self.eat(self.current_token().type).value
                 self.eat("KEYWORD") # import
-                # Allow keywords as imported names
-                lib_names = []
-                if tok.type == "ARITH":
-                    while tok.type == "NEWLINE":
-                        lib_names.append(self.eat(self.current_token().type).value)
+                # Allow keywords as imported names; support comma-separated list
+                # Grammar allows single Ident, but tolerate `a, b, c` for convenience
+                names = []
+                names.append(self.eat(self.current_token().type).value)
+                while self.current_token().type == "SYMBOL" and self.current_token().value == ",":
+                    self.eat("SYMBOL")
+                    self.skip_newlines()
+                    names.append(self.eat(self.current_token().type).value)
+                # If multiple names, we store them as comma-joined string in ImportFromNode
+                # and let the interpreter handle splitting; for now return first and
+                # rely on inorigin files being split into single imports.
+                if len(names) == 1:
+                    return ImportFromNode(names[0], lib)
                 else:
-                    lib_names.append(self.eat(self.current_token().type).value)
-                return ImportFromNode(lib, lib_names)
+                    # Store as ImportFromNode with first name, but also handle via multiple nodes
+                    # For compatibility, return a BlockNode containing multiple ImportFromNodes
+                    # However parser expects single node; we handle by returning the first and
+                    # the caller will need to handle the rest via separate statements.
+                    # Instead, we join and let classes handle split.
+                    return ImportFromNode(", ".join(names), lib)
 
             if tok.value == "return":
                 self.eat("KEYWORD")
-                return ReturnNode(self.special_expr())
+                # Return may be bare (no value) â€“ e.g. `return` inside void function
+                if self.current_token().type in ("NEWLINE", "EOF") or self.current_token().value in ("}", ";"):
+                    return ReturnNode(NoneNode())
+                try:
+                    return ReturnNode(self.special_expr())
+                except SyntaxError:
+                    return ReturnNode(NoneNode())
 
             if tok.value == "break":
                 self.eat("KEYWORD")
@@ -1000,3 +1050,4 @@ class Parser:
             statements.append(self.statement())
             self.skip_newlines()
         return ProgramNode(statements)
+

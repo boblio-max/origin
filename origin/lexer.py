@@ -1,4 +1,4 @@
-"""lexer
+﻿"""lexer
 
 Lightweight lexical analyzer for the origin language.
 
@@ -11,6 +11,8 @@ import re
 
 
 # Ordered list of regular-expression patterns mapping to token type names.
+# Order is critical for overlapping prefixes: multi-char ops must precede their single-char prefixes.
+# `!=` must be before `!` (COMP before LOGIC single), `<<` before `<` (ARITH shift before COMP single).
 TOKEN_REGEX = [
     (r"[ \t]+",              "WHITESPACE"),# Preserve whitespace for py{} blocks
     (r"#.*",                 None),       # Ignore comments
@@ -21,13 +23,16 @@ TOKEN_REGEX = [
     (r"\d+",                 "INT"),      # Integer numbers
     (r"[fF]\".*?\"|[fF]'.*?'", "FSTRING"), # Formatted f-strings
     (r"\".*?\"|'.*?'",       "STRING"),   # String literals
-    (r"\&\&|\|\||\b(and|or|not)\b|!", "LOGIC"),    # Logical operators
+    (r"===|!==|==|!=|<=|>=|<>", "COMP"), # Multi-char comparisons (must be before single-char)
+    (r"\&\&|\|\|",           "LOGIC"),    # Multi-char logic
+    (r"<<|>>",               "ARITH"),    # Shift operators (must be before single < >)
+    (r"\b(and|or|not)\b|!",  "LOGIC"),    # Single logic (after multi-char comps)
+    (r"<|>",                 "COMP"),     # Single comparisons (after shift)
     (r"\+\+|\-\-",           "UNARY"),    # Unary operators
     (r"\+=|\-=|\*=|\/=|\%=|\*\*=|\/\/=|&=|\|=|\^=|<<=|>>=", "ASSIGN_OP"), # Compound assignment operators
-    (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|<<|>>|~", "ARITH"), # Arithmetic and bitwise operators
-    (r"===|!==|==|!=|<=|>=|<>|<|>", "COMP"), # Comparison operators
     (r"\?\?|->|=>|<=>|::",   "SPECIAL"),  # Special operators
     (r"=",                   "ASSIGN"),   # Assignment operator
+    (r"\+|\-|\*\*|\*|\/\/|\/|\%|\&|\||\^|~", "ARITH"), # Remaining arithmetic/bitwise (without << >>)
     (r"\[|\]|\{|\}",         "BRACKET"),  # Brackets and braces
     (r"\(|\)|:|,|\.|;|\?",   "SYMBOL"),   # Symbols and punctuation
     (r"\b(none|if|elif|else|for|to|while|write|pi|with|return|py|int|run|read|len|str|sqrt|float|let|rand_num|const|in|print|true|exec|false|abs|floor|ceil|append|address|accel|gyro|temp|break|input|skip|continue|def|func|import|from|class|try|call|except|set|ifinstance|pass|as|bool|parallel|range|self|command)\b", "KEYWORD"), # Reserved keywords
@@ -96,3 +101,5 @@ def return_token_type(TOKEN):
         if pattern.fullmatch(TOKEN):
             return token_type
     return None
+
+

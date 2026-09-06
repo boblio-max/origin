@@ -1,16 +1,16 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 import java.io.IOException;
 
 /**
  * CLI entry point. Usage:
- *   java -cp . origin.bc.JavaImplement.Main program.obc
+ *   java -cp . origin.bc.Main program.obc
  */
 public final class Main {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("usage: java -cp . origin.bc.JavaImplement.Main <program.obc>");
+            System.err.println("usage: java -cp . origin.bc.Main <program.obc>");
             System.exit(2);
         }
         String path = args[0];

@@ -1,4 +1,4 @@
-"""dump_obc.py — Serialize Compiler output to .obc for the Java VM.
+﻿"""dump_obc.py â€” Serialize Compiler output to .obc for the Java VM.
 
 Usage:
     python -m origin.bc.dump_obc path/to/source.or program.obc
@@ -132,3 +132,4 @@ def _cli(argv: List[str]) -> int:
 
 if __name__ == "__main__":
     sys.exit(_cli(sys.argv))
+

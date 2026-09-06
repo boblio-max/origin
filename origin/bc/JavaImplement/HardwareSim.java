@@ -1,4 +1,4 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 import java.util.List;
 import java.util.Map;
@@ -7,7 +7,7 @@ import java.util.Map;
  * Hardware-backed operations for SET_PIN, HARDWARE_CALL, SET_SERVO.
  * Mirrors the try-import-then-fallback pattern in svm.py:14-46.
  *
- * The Real backend is intentionally absent — Pi GPIO / smbus2 / adafruit_servokit
+ * The Real backend is intentionally absent â€” Pi GPIO / smbus2 / adafruit_servokit
  * are not available on the JVM, and adding the JNI/pi4j dependencies is out of
  * scope for this port. Any call to setBackend(Backend.REAL) without the
  * corresponding JNI bridge installed will fall through to simulation.
@@ -22,7 +22,7 @@ public final class HardwareSim {
     public static Backend getBackend() { return backend; }
 
     public static void setPin(long pin, long state) {
-        // svm.py:14-21 — only the simulation branch is reachable from the JVM.
+        // svm.py:14-21 â€” only the simulation branch is reachable from the JVM.
         System.out.println("[SIM] Pin " + pin + " set to " + state);
     }
 
@@ -49,7 +49,7 @@ public final class HardwareSim {
 
     /** SET_SERVO dispatcher (svm.py:427-438). Caches the kit globally. */
     public static void setServo(long channel, double angle) {
-        // svm.py:432-438 — without adafruit_servokit available on the JVM,
+        // svm.py:432-438 â€” without adafruit_servokit available on the JVM,
         // we always take the simulation branch.
         System.out.println("[SIM] Servo " + channel + " angle set to " + angle);
     }
@@ -75,7 +75,7 @@ public final class HardwareSim {
         if ("spi".equals(namespace) && "read".equals(method)) {
             return spiRead(Builtins.asLong(args.get(0)));
         }
-        // svm.py:425 — unknown hardware call gets a generic SIM line
+        // svm.py:425 â€” unknown hardware call gets a generic SIM line
         StringBuilder sb = new StringBuilder("[SIM] ").append(namespace).append(".").append(method).append("(");
         for (int i = 0; i < args.size(); i++) {
             if (i > 0) sb.append(", ");

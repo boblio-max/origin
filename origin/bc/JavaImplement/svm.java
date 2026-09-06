@@ -1,4 +1,4 @@
-package origin.bc.JavaImplement;
+﻿package origin.bc.JavaImplement;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -10,15 +10,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * sVM — Origin bytecode virtual machine. 1:1 port of bc/svm.py.
+ * sVM â€” Origin bytecode virtual machine. 1:1 port of bc/svm.py.
  *
  * Stack frame layout (svm.py:49-58):
- *   bytecode[], constants[]       — from the loader
- *   stack                          — operand stack (ArrayDeque, used as stack)
- *   variables                      — current frame's locals (HashMap)
- *   pc                             — program counter
- *   callStack                      — [(retPc, savedVariables), ...]
- *   tryCatchStack                  — handler-PC stack for THROW
+ *   bytecode[], constants[]       â€” from the loader
+ *   stack                          â€” operand stack (ArrayDeque, used as stack)
+ *   variables                      â€” current frame's locals (HashMap)
+ *   pc                             â€” program counter
+ *   callStack                      â€” [(retPc, savedVariables), ...]
+ *   tryCatchStack                  â€” handler-PC stack for THROW
  *
  * Jump targets are encoded as two big-endian bytes (svm.py:178,183,268,350):
  *   target = (bytecode[pc] << 8) | bytecode[pc+1]
@@ -341,7 +341,7 @@ public final class svm {
                     BoundMethod bm = (BoundMethod) func;
                     // Python (svm.py:318): self.stack.insert(len(stack)-num_args, instance)
                     // In our LinkedList with TOP-at-end semantics, insertAt = stack.size()-numArgs
-                    // puts the instance beneath the args — same effect as Python.
+                    // puts the instance beneath the args â€” same effect as Python.
                     int insertAt = stack.size() - numArgs;
                     stack.add(insertAt, bm.instance);
                     saveFrame(numArgs);

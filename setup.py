@@ -1,8 +1,8 @@
-from setuptools import setup, find_packages
+﻿from setuptools import setup, find_packages
 
 setup(
     name="origin-or",
-    version="1.7.22",
+    version="1.7.24",
     description="The Origin programming language",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

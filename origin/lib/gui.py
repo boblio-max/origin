@@ -1,5 +1,5 @@
-"""
-gui.py — thin OOP wrapper around pyautogui
+﻿"""
+gui.py â€” thin OOP wrapper around pyautogui
 
 Each pyautogui function is exposed as a method on the GUI class plus a
 module-level convenience instance (``gui``). Lazy imports so the module
@@ -160,3 +160,5 @@ try:
     __all__ = [x for x in dir(_pg) if not x.startswith("_")]
 except Exception:
     __all__ = ["GUI", "gui"]
+
+
