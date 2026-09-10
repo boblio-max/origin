@@ -59,6 +59,13 @@ class Parser:
             return tok
         raise self._error(f"Expected {type_}, got {tok.type} ({tok.value})")
 
+    def eat_line(self):
+        string = ""
+        while self.current_token().type != "NEWLINE":
+            part = self.eat(self.current_token().type)
+            string += part.value
+        return string
+
     def _expect_symbol(self, value):
         """Consume a symbol token with the given value, else raise a syntax error."""
         tok = self.current_token()
@@ -732,7 +739,12 @@ class Parser:
                 condition = self._cast_or_none(self.special_expr())
                 body = self.block()
                 return WhileNode(condition, body)
-                 
+        
+            if tok.value == "match":
+                self.eat("KEYWORD")
+                name = self.eat("IDENT").value
+                self.match_block(name)
+                  
             if tok.value == "run":
                 self.eat("KEYWORD")  # run
                 cmd_tok = self.current_token()
@@ -1025,6 +1037,18 @@ class Parser:
         self.eat("BRACKET") # }
         return BlockNode(statements)
 
+    def match_block(self, name):
+        self.skip_newlines()
+        self.eat("BRACKET") # {
+        cases = []
+        while self.current_token().value != "}":
+            pattern = self.eat("IDENT")
+            self.eat("ARITH")
+            command = self.eat_line()
+            cases.append((pattern.value, command))
+        self.eat("BRACKET") # }
+        return MatchNode(name, cases)
+    
     def if_stmt(self):
         self.eat("KEYWORD") # if
         condition = self._cast_or_none(self.special_expr())

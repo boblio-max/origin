@@ -9,7 +9,7 @@ from parser import Parser
 from bc.byteKey import OpCode
 
 class Compiler:
-    def __init__(self):
+    def __init__(self, _type="vm"):
         self.bytecode = []
         self.constants = []
         self.loop_starts = [] # Stack of JMP targets for continue
@@ -26,6 +26,7 @@ class Compiler:
             "append": lambda path, content: open(path, 'a').write(content),
             "range": range,
         }
+        self.type = _type
 
     def emit_jmp(self, opcode, target=0):
         self.emit(opcode)
@@ -261,6 +262,35 @@ class Compiler:
             self.loop_starts.pop()
             self.loop_ends.pop()
 
+        elif isinstance(node, MatchNode):
+            self.compile(node.name)
+            end_jmp_indices = []
+            for pattern, command in node.cases:
+                # Duplicate the value to match against
+                self.emit(OpCode.DUP)
+                # Push the pattern to compare
+                idx = self.add_constant(pattern)
+                self.emit(OpCode.PUSH_CONST, idx)
+                # Compare for equality
+                self.emit(OpCode.EQ)
+                # Jump if not equal to the next case
+                next_case_idx = self.emit_jmp(OpCode.JMP_IF_FALSE)
+                
+                # If equal, pop the matched value and execute the command
+                self.emit(OpCode.POP)
+                self.compile(command)
+                end_jmp_indices.append(self.emit_jmp(OpCode.JMP))
+                
+                # Patch the jump to the next case
+                self.patch_jmp(next_case_idx, len(self.bytecode))
+            
+            # If no cases matched, pop the unmatched value
+            self.emit(OpCode.POP)
+            
+            # Patch all end jumps to after the match block
+            for idx in end_jmp_indices:
+                self.patch_jmp(idx, len(self.bytecode))
+                
         elif isinstance(node, CompoundAssignNode):
             var_idx = self.add_constant(node.name)
             # 1. Get the current value
@@ -746,7 +776,7 @@ class Compiler:
             dst_name_idx = self.add_constant(node.dst)
             self.emit(OpCode.COPY, dst_name_idx, src_name_idx)
 
-        if isinstance(node, ProgramNode):
+        elif isinstance(node, ProgramNode):
             self.emit(OpCode.HALT)
             
             for item in self.unresolved_calls:
@@ -763,5 +793,54 @@ class Compiler:
                         self.bytecode[opcode_idx] = OpCode.LOAD_VAR
                     else:
                         raise NameError(f"Function '{func_name}' is not defined")
+        else:
+            pass
+
+    def to_payload(self):
+        """Return (bytecode, constants) with constants JSON-safe for the Rust bridge.
+
+        Callables / class refs that the Rust VM cannot represent are returned
+        as {"$native": name} markers so svm.rs can resolve them via call_native
+        or fall back with a clear error.
+        """
+        import json
+
+        def encode_const(c):
+            if c is None or isinstance(c, (bool, int, float, str)):
+                return c
+            if isinstance(c, (list, tuple)):
+                return [encode_const(x) for x in c]
+            if isinstance(c, dict):
+                return {str(k): encode_const(v) for k, v in c.items()}
+            # Builtin callables (range, open, ...) -> native marker
+            name = getattr(c, "__name__", None)
+            if name:
+                return {"$native": name}
+            # Function addresses are plain ints already; anything else -> repr marker
+            try:
+                json.dumps(c)
+                return c
+            except Exception:
+                return {"$repr": repr(c)}
+
+        return list(self.bytecode), [encode_const(c) for c in self.constants]
+
+    def send_to_rust(self, host="127.0.0.1", port=64201):
+        """Optional TCP handoff to a Rust VM listening on host:port.
+
+        Cross-platform replacement for the old AF_UNIX /tmp/python_rust.sock
+        path (which never worked on Windows). Raises ConnectionError if
+        nothing is listening; callers should fall back to the Python sVM.
+        """
+        import json
+        import socket as _socket
+
+        bytecode, constants = self.to_payload()
+        payload = json.dumps({"bytecode": bytecode, "constants": constants}) + "\n"
+        client = _socket.create_connection((host, port), timeout=5)
+        try:
+            client.sendall(payload.encode("utf-8"))
+        finally:
+            client.close()
 
 

@@ -572,3 +572,12 @@ class MoveNode(ASTNode):
     def __repr__(self):
         return f"MoveNode({self.src}, {self.dst})"
 
+class MatchNode(ASTNode):
+    """Pattern matching (match/case)."""
+    def __init__(self, value, cases):
+        super().__init__()
+        self.value = value
+        self.cases = cases  # list of (pattern, body) tuples
+    def __repr__(self):
+        return f"MatchNode({self.value}, {self.cases})"
+

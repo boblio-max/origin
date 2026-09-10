@@ -20,6 +20,7 @@ origin/runner.py
 origin/runnerIR.py
 origin/runnerIRtimed.py
 origin/runnerOrch.py
+origin/runnerSVM.py
 origin/runnertimed.py
 origin/test.py
 origin/test_oop.py
@@ -33,6 +34,8 @@ origin/bc/dump_obc.py
 origin/bc/helpers.py
 origin/bc/svm.py
 origin/bc/to_byte.py
+origin/bc/rust_implementation/Cargo.toml
+origin/bc/rust_implementation/svm.rs
 origin/grammar/__init__.py
 origin/grammar/validate.py
 origin/lib/OSPR.or
