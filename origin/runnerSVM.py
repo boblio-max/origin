@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 
-# Support both `python origin/runnerSVM.py` and `python -m origin.runnerSVM`
+# Support both `python runnerSVM.py` and `python -m origin.runnerSVM`
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
@@ -20,11 +20,11 @@ if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
 try:
-    from lexer import lex
-    from parser import Parser
-    from bc.byteKey import OpCode  # noqa: F401 (re-export check)
-    from bc.to_byte import Compiler
-    from bc.svm import sVM
+    from .lexer import lex
+    from .parser import Parser
+    from .bc.byteKey import OpCode  # noqa: F401 (re-export check)
+    from .bc.to_byte import Compiler
+    from .bc.svm import sVM
 except ImportError:  # pragma: no cover - fallback for -m invocation
     from origin.lexer import lex
     from origin.parser import Parser
@@ -37,6 +37,7 @@ def _resolve_or_file(code_name):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         code_name,
+        os.path.join(base_dir, "..", "TESTS(Or)", code_name),
         os.path.join(os.getcwd(), code_name),
     ]
     for c in candidates:
@@ -56,7 +57,7 @@ def _run_rust(bytecode, constants):
         import my_rust_module
     except ImportError:
         print("[runnerSVM] my_rust_module not built; falling back to Python sVM.")
-        print("[runnerSVM] Build it with: maturin develop -m origin/bc/rust_implementation/Cargo.toml")
+        print("[runnerSVM] Build it with: maturin develop -m bc/rust_implementation/Cargo.toml")
         return False
 
     # Prefer direct call (no sockets); fall back to TCP handoff for legacy servers.

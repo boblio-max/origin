@@ -1,0 +1,32 @@
+{
+  "kind": "Program",
+  "statements": [
+    { "kind": "Class", "name": "Drone", "fields": ["x", "y"], "body": {
+        "kind": "Block",
+        "statements": [
+          { "kind": "Def", "name": "setPos", "params": [
+              { "name": "self" }, { "name": "nx" }, { "name": "ny" }
+            ], "body": { "kind": "Block", "statements": [
+              { "kind": "AttrAssign", "object": { "kind": "SelfRef" }, "attr": "x", "value": { "kind": "Var", "name": "nx" } },
+              { "kind": "AttrAssign", "object": { "kind": "SelfRef" }, "attr": "y", "value": { "kind": "Var", "name": "ny" } }
+            ]}},
+          { "kind": "Def", "name": "show", "params": [
+              { "name": "self" }, { "name": "label" }
+            ], "body": { "kind": "Block", "statements": [
+              { "kind": "Print", "expr": { "kind": "Var", "name": "label" } },
+              { "kind": "Print", "expr": { "kind": "Attr", "object": { "kind": "SelfRef" }, "attr": "x" } },
+              { "kind": "Print", "expr": { "kind": "Attr", "object": { "kind": "SelfRef" }, "attr": "y" } }
+            ]}}
+        ]
+    }},
+
+    { "kind": "Let", "name": "d", "type": "any",
+      "value": { "kind": "Call", "callee": { "kind": "Var", "name": "Drone" }, "args": [] } },
+    { "kind": "AttrAssign", "object": { "kind": "Var", "name": "d" }, "attr": "x", "value": { "kind": "Number", "value": 100, "type": "int" } },
+    { "kind": "AttrAssign", "object": { "kind": "Var", "name": "d" }, "attr": "y", "value": { "kind": "Number", "value": 200, "type": "int" } },
+    { "kind": "ExprStmt", "expr": {
+        "kind": "Call", "callee": { "kind": "Attr", "object": { "kind": "Var", "name": "d" }, "attr": "show" },
+        "args": [ { "kind": "String", "value": "Initial position:" } ]
+    }}
+  ]
+}

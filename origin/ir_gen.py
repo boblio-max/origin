@@ -1,4 +1,4 @@
-﻿import random
+import random
 import csv
 import math
 import sys
@@ -340,4 +340,3 @@ class ir_gen:
     def visitCopy(self, node):
         src_temp = self.generate(node.src)
         self.emit("COPY", node.dst, src_temp)
-

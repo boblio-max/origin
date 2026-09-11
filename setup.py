@@ -2,7 +2,7 @@
 
 setup(
     name="origin-or",
-    version="1.7.26",
+    version="1.7.27",
     description="The Origin programming language",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

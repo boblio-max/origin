@@ -6,7 +6,7 @@
 #
 set -euo pipefail
 
-ORIGIN_VERSION="1.7.26"
+ORIGIN_VERSION="1.7.27"
 INSTALL_DIR="${ORIGIN_HOME:-$HOME/.origin}"
 BIN_DIR="$INSTALL_DIR/bin"
 PKG_DIR="$INSTALL_DIR/lib"

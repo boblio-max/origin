@@ -1,4 +1,4 @@
-﻿import random
+import random
 import csv
 import math
 import sys
@@ -7,8 +7,8 @@ import threading
 import re
 from pathlib import Path
 # from origin.classes import *
-from bc.byteKey import OpCode
-from bc.helpers import OriginClass, OriginInstance, BoundMethod
+from .byteKey import OpCode
+from .helpers import OriginClass, OriginInstance, BoundMethod
 
 _PY_RETURN_RE = re.compile(r'(?m)^\s*return\b')
 
@@ -733,5 +733,3 @@ class sVM:
 
 # Backwards-compatible alias used by runnerByte.py
 VM = sVM
-
-

@@ -1,0 +1,6 @@
+{
+  "kind": "Program",
+  "statements": [
+    { "kind": "Print", "expr": { "kind": "String", "value": "Hello, World!" } }
+  ]
+}

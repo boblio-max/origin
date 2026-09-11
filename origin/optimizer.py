@@ -1,4 +1,4 @@
-﻿class Optimizer:
+class Optimizer:
 
     def __init__(self, ir):
         self.ir = ir
@@ -236,4 +236,3 @@
     def replace_instruction(self, index, instruction):
         """Replace one instruction."""
         pass
-

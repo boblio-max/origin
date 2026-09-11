@@ -1,4 +1,4 @@
-﻿"""
+"""
 runnerAlt.py
 
 This module provides an alternative execution script for the language.
@@ -7,13 +7,17 @@ into an Abstract Syntax Tree (AST), and uses the ir_generator to generate IR
 The process is not done, next will come the optmizer bytecode gen and execution
 """
 
-from lexer import lex
-from parser import Parser
-from interpreter import Interpreter
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 
+
+from .lexer import lex
+from .parser import Parser
+from .interpreter import Interpreter
 import os
 import time
-from ir_gen import ir_gen
-from optimizer import Optimizer
+from .ir_gen import ir_gen
+from .optimizer import Optimizer
 # Clear the terminal screen for clean output
 # os.system('cls')
 
@@ -78,4 +82,3 @@ print(f"Optimizer completed in {elapsed_time3:.4f} seconds.")
 
 ttime = timee-times
 print(f"Execution time is {ttime:.4f} seconds")
-

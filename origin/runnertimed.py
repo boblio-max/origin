@@ -1,4 +1,4 @@
-﻿"""
+"""
 runnerAlt.py
 
 This module provides an alternative execution script for the language.
@@ -7,9 +7,13 @@ into an Abstract Syntax Tree (AST), and uses the interpreter to generate
 Python code which is then executed. It measures the execution time of the entire process.
 """
 
-from lexer import lex
-from parser import Parser
-from interpreter import Interpreter
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 
+
+from .lexer import lex
+from .parser import Parser
+from .interpreter import Interpreter
 import os
 import time
 
@@ -53,11 +57,11 @@ end_time1 = time.perf_counter()
 
 # 3. Interpret the AST to generate equivalent Python code
 start_time2 = time.perf_counter()
-origin = Interpreter().generate(ast)
+origin_code = Interpreter().generate(ast)
 end_time2 = time.perf_counter()
 
 start_time3 = time.perf_counter()
-exec(origin)
+exec(origin_code)
 end_time3 = time.perf_counter()
 timee = time.perf_counter()
 elapsed_time = end_time - start_time
@@ -74,4 +78,3 @@ print(f"Execution completed in {elapsed_time3:.4f} seconds.")
 
 ttime = timee-times
 print(f"Total time is {ttime:.4f} seconds")
-

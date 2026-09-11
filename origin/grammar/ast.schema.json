@@ -1,0 +1,807 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://origin-lang.dev/schemas/ast.v1.json",
+  "title": "Origin AST",
+  "description": "JSON representation of an Origin v1.7 program. One-to-one with the Python AST nodes in ORIGIN_CODE/classes.py. Emit this from a model, then lower to Origin source via the serializer.",
+  "type": "object",
+  "required": ["kind", "statements"],
+  "additionalProperties": false,
+  "properties": {
+    "kind":     { "const": "Program" },
+    "line":     { "type": "integer", "minimum": 1 },
+    "statements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Stmt" }
+    }
+  },
+  "$defs": {
+    "LineMeta": {
+      "type": "object",
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+
+    "Stmt": {
+      "oneOf": [
+        { "$ref": "#/$defs/Let" },
+        { "$ref": "#/$defs/Const" },
+        { "$ref": "#/$defs/Assign" },
+        { "$ref": "#/$defs/IndexAssign" },
+        { "$ref": "#/$defs/AttrAssign" },
+        { "$ref": "#/$defs/CompoundAssign" },
+        { "$ref": "#/$defs/Print" },
+        { "$ref": "#/$defs/If" },
+        { "$ref": "#/$defs/While" },
+        { "$ref": "#/$defs/For" },
+        { "$ref": "#/$defs/Try" },
+        { "$ref": "#/$defs/Parallel" },
+        { "$ref": "#/$defs/Def" },
+        { "$ref": "#/$defs/Class" },
+        { "$ref": "#/$defs/Import" },
+        { "$ref": "#/$defs/ImportAs" },
+        { "$ref": "#/$defs/ImportFrom" },
+        { "$ref": "#/$defs/Return" },
+        { "$ref": "#/$defs/Break" },
+        { "$ref": "#/$defs/Continue" },
+        { "$ref": "#/$defs/Pass" },
+        { "$ref": "#/$defs/Exec" },
+        { "$ref": "#/$defs/PyBlock" },
+        { "$ref": "#/$defs/Set" },
+        { "$ref": "#/$defs/ExprStmt" }
+      ]
+    },
+
+    "Expr": {
+      "oneOf": [
+        { "$ref": "#/$defs/Number" },
+        { "$ref": "#/$defs/String" },
+        { "$ref": "#/$defs/FString" },
+        { "$ref": "#/$defs/Bool" },
+        { "$ref": "#/$defs/Var" },
+        { "$ref": "#/$defs/BinOp" },
+        { "$ref": "#/$defs/LogicOp" },
+        { "$ref": "#/$defs/SpecialOp" },
+        { "$ref": "#/$defs/Pipe" },
+        { "$ref": "#/$defs/Unary" },
+        { "$ref": "#/$defs/Call" },
+        { "$ref": "#/$defs/Index" },
+        { "$ref": "#/$defs/Attr" },
+        { "$ref": "#/$defs/Cast" },
+        { "$ref": "#/$defs/ListLit" },
+        { "$ref": "#/$defs/DictLit" },
+        { "$ref": "#/$defs/TupleLit" },
+        { "$ref": "#/$defs/Lambda" },
+        { "$ref": "#/$defs/Input" },
+        { "$ref": "#/$defs/Sqrt" },
+        { "$ref": "#/$defs/Len" },
+        { "$ref": "#/$defs/Range" },
+        { "$ref": "#/$defs/RandNum" },
+        { "$ref": "#/$defs/Write" },
+        { "$ref": "#/$defs/Append" },
+        { "$ref": "#/$defs/Read" },
+        { "$ref": "#/$defs/ListCall" },
+        { "$ref": "#/$defs/HwPrimitive" },
+        { "$ref": "#/$defs/SelfRef" }
+      ]
+    },
+
+    "Block": {
+      "type": "object",
+      "required": ["kind", "statements"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":       { "const": "Block" },
+        "line":       { "type": "integer", "minimum": 1 },
+        "statements": { "type": "array", "items": { "$ref": "#/$defs/Stmt" } }
+      }
+    },
+
+    "Type": {
+      "type": "string",
+      "enum": ["int", "float", "str", "bool", "list", "any"]
+    },
+
+    "Let": {
+      "type": "object",
+      "required": ["kind", "name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Let" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "name":  { "$ref": "#/$defs/Identifier" },
+        "type":  { "$ref": "#/$defs/Type" },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Const": {
+      "type": "object",
+      "required": ["kind", "name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Const" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "name":  { "$ref": "#/$defs/Identifier" },
+        "type":  { "$ref": "#/$defs/Type" },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Assign": {
+      "type": "object",
+      "required": ["kind", "name", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Assign" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "name":  { "$ref": "#/$defs/Identifier" },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "IndexAssign": {
+      "type": "object",
+      "required": ["kind", "collection", "index", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":       { "const": "IndexAssign" },
+        "line":       { "type": "integer", "minimum": 1 },
+        "collection": { "$ref": "#/$defs/Expr" },
+        "index":      { "$ref": "#/$defs/Expr" },
+        "value":      { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "AttrAssign": {
+      "type": "object",
+      "required": ["kind", "object", "attr", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "AttrAssign" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "object": { "$ref": "#/$defs/Expr" },
+        "attr":   { "$ref": "#/$defs/Identifier" },
+        "value":  { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "CompoundAssign": {
+      "type": "object",
+      "required": ["kind", "name", "op", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "CompoundAssign" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "name":  { "$ref": "#/$defs/Identifier" },
+        "op":    { "enum": ["+=", "-=", "*=", "/=", "%=", "**=", "//=", "&=", "|="] },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Print": {
+      "type": "object",
+      "required": ["kind", "expr"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Print" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "expr":  { "$ref": "#/$defs/Expr" },
+        "for":   { "$ref": "#/$defs/For" }
+      }
+    },
+
+    "If": {
+      "type": "object",
+      "required": ["kind", "cond", "then"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "If" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "cond":  { "$ref": "#/$defs/Expr" },
+        "then":  { "$ref": "#/$defs/Block" },
+        "elifs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["cond", "then"],
+            "additionalProperties": false,
+            "properties": {
+              "cond": { "$ref": "#/$defs/Expr" },
+              "then": { "$ref": "#/$defs/Block" }
+            }
+          }
+        },
+        "else": { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "While": {
+      "type": "object",
+      "required": ["kind", "cond", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "While" },
+        "line": { "type": "integer", "minimum": 1 },
+        "cond": { "$ref": "#/$defs/Expr" },
+        "body": { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "For": {
+      "type": "object",
+      "required": ["kind", "target", "iter", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "For" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "target": { "$ref": "#/$defs/ForTarget" },
+        "iter":   { "$ref": "#/$defs/Expr" },
+        "body":   { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "ForTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["name"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "$ref": "#/$defs/Identifier" },
+            "type": { "$ref": "#/$defs/Type" }
+          }
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Identifier" }
+        }
+      ]
+    },
+
+    "Try": {
+      "type": "object",
+      "required": ["kind", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":    { "const": "Try" },
+        "line":    { "type": "integer", "minimum": 1 },
+        "body":    { "$ref": "#/$defs/Block" },
+        "excepts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Block" }
+        },
+        "else":    { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "Parallel": {
+      "type": "object",
+      "required": ["kind", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":    { "const": "Parallel" },
+        "line":    { "type": "integer", "minimum": 1 },
+        "threads": { "type": "integer", "minimum": 0 },
+        "body":    { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "Def": {
+      "type": "object",
+      "required": ["kind", "name", "params", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "Def" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "name":   { "$ref": "#/$defs/Identifier" },
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "$ref": "#/$defs/Identifier" },
+              "type": { "$ref": "#/$defs/Type" }
+            }
+          }
+        },
+        "body":   { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "Class": {
+      "type": "object",
+      "required": ["kind", "name", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "Class" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "name":   { "$ref": "#/$defs/Identifier" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "$ref": "#/$defs/Identifier" },
+              "type": { "$ref": "#/$defs/Type" }
+            }
+          }
+        },
+        "body":   { "$ref": "#/$defs/Block" }
+      }
+    },
+
+    "Import": {
+      "type": "object",
+      "required": ["kind", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "Import" },
+        "line": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$" }
+      }
+    },
+
+    "ImportAs": {
+      "type": "object",
+      "required": ["kind", "name", "alias"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "ImportAs" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "name":  { "type": "string" },
+        "alias": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+
+    "ImportFrom": {
+      "type": "object",
+      "required": ["kind", "lib", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "ImportFrom" },
+        "line": { "type": "integer", "minimum": 1 },
+        "lib":  { "type": "string" },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\s*,\\s*[A-Za-z_][A-Za-z0-9_]*)*$",
+          "description": "Single name or comma-joined list matching parser.py `from x import a, b, c`"
+        }
+      }
+    },
+
+    "Return": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Return" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Break":    { "type": "object", "required": ["kind"], "additionalProperties": false, "properties": { "kind": { "const": "Break" },    "line": { "type": "integer", "minimum": 1 } } },
+    "Continue": { "type": "object", "required": ["kind"], "additionalProperties": false, "properties": { "kind": { "const": "Continue" }, "line": { "type": "integer", "minimum": 1 } } },
+    "Pass":     { "type": "object", "required": ["kind"], "additionalProperties": false, "properties": { "kind": { "const": "Pass" },     "line": { "type": "integer", "minimum": 1 } } },
+
+    "Exec": {
+      "type": "object",
+      "required": ["kind", "code"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "Exec" },
+        "line": { "type": "integer", "minimum": 1 },
+        "code": { "type": "string" }
+      }
+    },
+
+    "PyBlock": {
+      "type": "object",
+      "required": ["kind", "code"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "PyBlock" },
+        "line": { "type": "integer", "minimum": 1 },
+        "code": { "type": "string" }
+      }
+    },
+
+    "Set": {
+      "type": "object",
+      "required": ["kind", "name", "arg1", "arg2"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "Set" },
+        "line": { "type": "integer", "minimum": 1 },
+        "name": { "$ref": "#/$defs/Identifier" },
+        "subtype": { "$ref": "#/$defs/Identifier" },
+        "arg1": { "$ref": "#/$defs/Expr" },
+        "arg2": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "ExprStmt": {
+      "type": "object",
+      "required": ["kind", "expr"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "ExprStmt" },
+        "line": { "type": "integer", "minimum": 1 },
+        "expr": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Number": {
+      "type": "object",
+      "required": ["kind", "value", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Number" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "type": "number" },
+        "type":  { "enum": ["int", "float"] }
+      }
+    },
+
+    "String": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "String" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "type": "string" }
+      }
+    },
+
+    "FString": {
+      "type": "object",
+      "required": ["kind", "parts"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "FString" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "parts": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/String" },
+              { "$ref": "#/$defs/Expr" }
+            ]
+          }
+        }
+      }
+    },
+
+    "Bool": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Bool" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "type": "boolean" }
+      }
+    },
+
+    "Var": {
+      "type": "object",
+      "required": ["kind", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "Var" },
+        "line": { "type": "integer", "minimum": 1 },
+        "name": { "$ref": "#/$defs/Identifier" }
+      }
+    },
+
+    "Identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+
+    "BinOp": {
+      "type": "object",
+      "required": ["kind", "op", "left", "right"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "BinOp" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "op":    { "enum": ["+", "-", "*", "/", "//", "%", "**"] },
+        "left":  { "$ref": "#/$defs/Expr" },
+        "right": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "LogicOp": {
+      "type": "object",
+      "required": ["kind", "op", "left", "right"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "LogicOp" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "op":    { "enum": ["and", "or", "&&", "||"] },
+        "left":  { "$ref": "#/$defs/Expr" },
+        "right": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "SpecialOp": {
+      "type": "object",
+      "required": ["kind", "op", "left", "right"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "SpecialOp" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "op":    { "enum": ["??", "=>", "<=>", "::"] },
+        "left":  { "$ref": "#/$defs/Expr" },
+        "right": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Pipe": {
+      "type": "object",
+      "required": ["kind", "value", "func"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Pipe" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "$ref": "#/$defs/Expr" },
+        "func":  { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Unary": {
+      "type": "object",
+      "required": ["kind", "op", "operand"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":    { "const": "Unary" },
+        "line":    { "type": "integer", "minimum": 1 },
+        "op":      { "enum": ["-", "!", "not", "++", "--"] },
+        "operand": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Call": {
+      "type": "object",
+      "required": ["kind", "callee", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "Call" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "callee": { "$ref": "#/$defs/Expr" },
+        "args":   { "type": "array", "items": { "$ref": "#/$defs/Expr" } }
+      }
+    },
+
+    "Index": {
+      "type": "object",
+      "required": ["kind", "collection", "index"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":       { "const": "Index" },
+        "line":       { "type": "integer", "minimum": 1 },
+        "collection": { "$ref": "#/$defs/Expr" },
+        "index":      { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Attr": {
+      "type": "object",
+      "required": ["kind", "object", "attr"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "Attr" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "object": { "$ref": "#/$defs/Expr" },
+        "attr":   { "$ref": "#/$defs/Identifier" }
+      }
+    },
+
+    "Cast": {
+      "type": "object",
+      "required": ["kind", "castType", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":     { "const": "Cast" },
+        "line":     { "type": "integer", "minimum": 1 },
+        "castType": { "$ref": "#/$defs/Type" },
+        "value":    { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "ListLit": {
+      "type": "object",
+      "required": ["kind", "elements"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":     { "const": "ListLit" },
+        "line":     { "type": "integer", "minimum": 1 },
+        "elements": { "type": "array", "items": { "$ref": "#/$defs/Expr" } }
+      }
+    },
+
+    "DictLit": {
+      "type": "object",
+      "required": ["kind", "entries"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":    { "const": "DictLit" },
+        "line":    { "type": "integer", "minimum": 1 },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "key":   { "$ref": "#/$defs/Expr" },
+              "value": { "$ref": "#/$defs/Expr" }
+            }
+          }
+        }
+      }
+    },
+
+    "TupleLit": {
+      "type": "object",
+      "required": ["kind", "elements"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":     { "const": "TupleLit" },
+        "line":     { "type": "integer", "minimum": 1 },
+        "elements": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/Expr" } }
+      }
+    },
+
+    "Lambda": {
+      "type": "object",
+      "required": ["kind", "param", "body"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Lambda" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "param": { "$ref": "#/$defs/Identifier" },
+        "body":  { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Input": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":   { "const": "Input" },
+        "line":   { "type": "integer", "minimum": 1 },
+        "prompt": { "$ref": "#/$defs/String" }
+      }
+    },
+
+    "Sqrt": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Sqrt" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Len": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Len" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "value": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Range": {
+      "type": "object",
+      "required": ["kind", "start", "end"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Range" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "start": { "$ref": "#/$defs/Expr" },
+        "end":   { "$ref": "#/$defs/Expr" },
+        "step":  { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "RandNum": {
+      "type": "object",
+      "required": ["kind", "start", "end"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "RandNum" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "start": { "$ref": "#/$defs/Expr" },
+        "end":   { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Write": {
+      "type": "object",
+      "required": ["kind", "file", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":    { "const": "Write" },
+        "line":    { "type": "integer", "minimum": 1 },
+        "file":    { "type": "string" },
+        "content": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Append": {
+      "type": "object",
+      "required": ["kind", "file", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":    { "const": "Append" },
+        "line":    { "type": "integer", "minimum": 1 },
+        "file":    { "type": "string" },
+        "content": { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "Read": {
+      "type": "object",
+      "required": ["kind", "file"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":  { "const": "Read" },
+        "line":  { "type": "integer", "minimum": 1 },
+        "file":  { "type": "string" },
+        "count": { "type": "integer", "minimum": -1 }
+      }
+    },
+
+    "ListCall": {
+      "type": "object",
+      "required": ["kind", "list", "pos"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "ListCall" },
+        "line": { "type": "integer", "minimum": 1 },
+        "list": { "$ref": "#/$defs/Expr" },
+        "pos":  { "$ref": "#/$defs/Expr" }
+      }
+    },
+
+    "HwPrimitive": {
+      "type": "object",
+      "required": ["kind", "namespace", "method", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "kind":      { "const": "HwPrimitive" },
+        "line":      { "type": "integer", "minimum": 1 },
+        "namespace": { "enum": ["i2c", "spi", "uart"] },
+        "method":    { "$ref": "#/$defs/Identifier" },
+        "args":      { "type": "array", "items": { "$ref": "#/$defs/Expr" } }
+      }
+    },
+
+    "SelfRef": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "SelfRef" },
+        "line": { "type": "integer", "minimum": 1 },
+        "attr": { "$ref": "#/$defs/Identifier" }
+      }
+    }
+  }
+}

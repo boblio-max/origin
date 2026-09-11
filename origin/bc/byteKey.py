@@ -1,4 +1,4 @@
-﻿class OpCode:
+class OpCode:
     PUSH_CONST   = 0x01
     LOAD_VAR     = 0x02
     STORE_VAR    = 0x03
@@ -80,5 +80,3 @@
     FLOOR        = 0x4F
     CEIL         = 0x50
     CUBE         = 0x51
-
-

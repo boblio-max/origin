@@ -1,12 +1,13 @@
-﻿import random
+import random
 import csv
 import math
 import sys
 from pathlib import Path
-from classes import *
-from lexer import lex
-from parser import Parser
-from bc.byteKey import OpCode
+from ..classes import *
+from ..lexer import lex
+from ..parser import Parser
+from .byteKey import OpCode
+import socket
 
 class Compiler:
     def __init__(self, _type="vm"):
@@ -27,7 +28,6 @@ class Compiler:
             "range": range,
         }
         self.type = _type
-
     def emit_jmp(self, opcode, target=0):
         self.emit(opcode)
         idx = len(self.bytecode)
@@ -843,4 +843,4 @@ class Compiler:
         finally:
             client.close()
 
-
+            

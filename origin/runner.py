@@ -1,6 +1,6 @@
-﻿"""runner
+"""runner
 
-Main entry point for the Origin programming language.
+Main entry point for the Origin programming language (modular VM + interpreter).
 Usage: origin <file.or>         # bytecode VM (default)
        origin i <file.or>       # AST-to-Python interpreter
 """
@@ -15,9 +15,10 @@ if os.path.isfile(_venv_python) and sys.executable.lower() != os.path.abspath(_v
     os.execv(_venv_python, [_venv_python] + sys.argv)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 
 
-from .lexer import lex
-from .parser import Parser
+from .lexer.lexer_point import lex, Token
+from .parser.parser_point import Parser
 from .errors import ParseError, report_error, translate_python_error
 
 try:
@@ -109,7 +110,7 @@ def run_origin(file_path, mode="vm"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Origin Programming Language v1.7.26")
+        print("Origin Programming Language v1.7.27")
         print("Usage: origin <file.or>")
         print("       origin i <file.or>   (interpreter mode)")
         sys.exit(1)
@@ -121,5 +122,3 @@ if __name__ == "__main__":
         run_origin(sys.argv[2], mode="interp")
     else:
         run_origin(sys.argv[1], mode="vm")
-
-

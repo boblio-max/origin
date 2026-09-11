@@ -1,0 +1,34 @@
+{
+  "kind": "Program",
+  "statements": [
+    { "kind": "Let", "name": "x", "type": "int",  "value": { "kind": "Number", "value": 10, "type": "int" } },
+    { "kind": "CompoundAssign", "name": "x", "op": "+=", "value": { "kind": "Number", "value": 5, "type": "int" } },
+    { "kind": "Print", "expr": {
+        "kind": "BinOp",
+        "op": "+",
+        "left":  { "kind": "String", "value": "X is now: " },
+        "right": { "kind": "Call", "callee": { "kind": "Var", "name": "str" }, "args": [ { "kind": "Var", "name": "x" } ] }
+    }},
+
+    { "kind": "Let", "name": "y", "type": "str", "value": { "kind": "String", "value": "100" } },
+    { "kind": "Let", "name": "z", "type": "int", "value": {
+        "kind": "BinOp", "op": "+",
+        "left":  { "kind": "Call", "callee": { "kind": "Var", "name": "int" }, "args": [ { "kind": "Var", "name": "y" } ] },
+        "right": { "kind": "Number", "value": 50, "type": "int" }
+    }},
+    { "kind": "Print", "expr": {
+        "kind": "BinOp", "op": "+",
+        "left":  { "kind": "String", "value": "Z is: " },
+        "right": { "kind": "Call", "callee": { "kind": "Var", "name": "str" }, "args": [ { "kind": "Var", "name": "z" } ] }
+    }},
+
+    { "kind": "Let", "name": "pi", "type": "float", "value": { "kind": "Number", "value": 3.14159, "type": "float" } },
+    { "kind": "Print", "expr": {
+        "kind": "BinOp", "op": "+",
+        "left":  { "kind": "String", "value": "Float to Int: " },
+        "right": { "kind": "Call", "callee": { "kind": "Var", "name": "str" },
+                    "args": [ { "kind": "Call", "callee": { "kind": "Var", "name": "int" },
+                               "args": [ { "kind": "Var", "name": "pi" } ] } ] }
+    }}
+  ]
+}

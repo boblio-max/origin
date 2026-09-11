@@ -1,5 +1,9 @@
-﻿from lexer import lex
-from parser import Parser
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # 
+
+from .lexer import lex
+from .parser import Parser
 from origin.bytecodeCOMPS.bCompS import VM, Compiler
 import os
 import time
@@ -52,4 +56,3 @@ print(f"Execution completed in {elapsed_time:.4f} seconds.")
 # times.append(elapsed_time) 
 # for i in range(len(times)):
 #     print(f"Run {i+1}: {times[i]:.4f} seconds") 
-
