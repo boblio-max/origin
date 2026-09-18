@@ -2,4 +2,6 @@ include origin/lib/*.or
 include origin/lib/*.py
 include origin/bc/rust_implementation/svm.rs
 include origin/bc/rust_implementation/Cargo.toml
+include origin/origin.toml
+include origin/origin_bytecode.toml
 include README.md

@@ -6,11 +6,81 @@ import os
 import threading
 import re
 from pathlib import Path
-# from origin.classes import *
+# from ..classes import *
 from .byteKey import OpCode
 from .helpers import OriginClass, OriginInstance, BoundMethod
 
 _PY_RETURN_RE = re.compile(r'(?m)^\s*return\b')
+
+# --- Dialect payload relocation ---
+# A precompiled dialect payload (from origin_bytecode.toml) carries constant
+# indices and jump targets relative to its own tables. Before physically
+# splicing it into the running stream we must remap both kinds of operand.
+#
+# Operand bytes consumed by each opcode (everything not listed is 0-width).
+_OP_WIDTHS = {
+    OpCode.PUSH_CONST: 1,
+    OpCode.LOAD_VAR: 1,
+    OpCode.STORE_VAR: 1,
+    OpCode.CALL: 1,
+    OpCode.LIST_INIT: 1,
+    OpCode.DICT_INIT: 1,
+    OpCode.UNPACK_SEQ: 1,
+    OpCode.BUILD_STR: 1,
+    OpCode.READ_FILE: 1,
+    OpCode.HARDWARE_CALL: 1,
+    OpCode.PARALLEL_START: 3,
+    OpCode.MOVE: 2,
+    OpCode.COPY: 2,
+    OpCode.JMP: 2,
+    OpCode.JMP_IF_FALSE: 2,
+    OpCode.FOR_ITER: 2,
+    OpCode.SETUP_EXCEPT: 2,
+}
+# Opcodes whose operand bytes are indices into the constants table.
+_CONST_IDX_OPS = {
+    OpCode.PUSH_CONST,
+    OpCode.LOAD_VAR,
+    OpCode.STORE_VAR,
+    OpCode.MOVE,
+    OpCode.COPY,
+}
+# Opcodes whose final 2 operand bytes form an absolute jump target.
+_JMP_TARGET_OPS = {
+    OpCode.JMP,
+    OpCode.JMP_IF_FALSE,
+    OpCode.FOR_ITER,
+    OpCode.SETUP_EXCEPT,
+}
+
+
+def _relocate_payload(payload, const_offset, pc_offset):
+    """Return a copy of ``payload`` with constant indices and jump targets
+    offset so it is valid when physically inserted at ``pc_offset`` into a
+    stream whose constants table has ``const_offset`` free entries at the end.
+    """
+    out = list(payload)
+    i = 0
+    while i < len(out):
+        op = out[i]
+        i += 1
+        n = _OP_WIDTHS.get(op, 0)
+        if op in _CONST_IDX_OPS:
+            for k in range(n):
+                out[i + k] = (out[i + k] + const_offset) & 0xFF
+        elif op == OpCode.PARALLEL_START:
+            # byte layout: num_threads(1) + body_start(2)
+            move_to = (out[i + 1] << 8) | out[i + 2]
+            move_to += pc_offset
+            out[i + 1] = (move_to >> 8) & 0xFF
+            out[i + 2] = move_to & 0xFF
+        elif op in _JMP_TARGET_OPS:
+            move_to = (out[i] << 8) | out[i + 1]
+            move_to += pc_offset
+            out[i] = (move_to >> 8) & 0xFF
+            out[i + 1] = move_to & 0xFF
+        i += n
+    return out
 
 
 # --- Hardware Runtime Helpers (mirrors interpreter.py) ---
@@ -233,6 +303,16 @@ class sVM:
 
             elif opcode == OpCode.POP:
                 self.stack.pop()
+
+            elif opcode == OpCode.DIALECT:
+                idx = self.bytecode[self.pc]
+                self.pc += 1
+                payload_bytes, payload_consts = self.constants[idx]
+                if isinstance(payload_consts, (list, tuple)):
+                    pass
+                else:
+                    payload_consts = []
+                self._splice_payload(idx, payload_bytes, payload_consts)
 
             elif opcode == OpCode.DUP:
                 self.stack.append(self.stack[-1])
@@ -602,6 +682,38 @@ class sVM:
         # merge back
         self.variables.update(vm.variables)
 
+    def _splice_payload(self, idx, payload_bytes, payload_consts):
+        """Physically insert a precompiled dialect payload into this VM.
+
+        The payload bytes are remapped (constants offset by the main table,
+        jump targets offset by the current pc) and cut into ``self.bytecode``
+        at the current pc. Execution then continues on the same stack, PC and
+        variables — the payload becomes part of the running stream.
+
+        Constants are merged once per payload; the constants table grows by
+        exactly one payload per distinct dialect marker, so repeated splices
+        (e.g. inside loops) never re-append.
+        """
+        cache = getattr(self, "_dialect_splice_cache", None)
+        if cache is None:
+            cache = self._dialect_splice_cache = {}
+        if idx not in cache:
+            const_offset = len(self.constants)
+            pb = list(payload_bytes)
+            # Payloads compiled as full programs end with HALT; strip it so a
+            # splice doesn't kill the enclosing VM.
+            while pb and pb[-1] == OpCode.HALT:
+                pb.pop()
+            cache[idx] = _relocate_payload(pb, const_offset, 0)
+            self.constants.extend(list(payload_consts))
+            self._dialect_splice_count = getattr(self, "_dialect_splice_count", 0) + 1
+        base = cache[idx]
+        self._dialect_splice_count = getattr(self, "_dialect_splice_count", 0) + 1
+        if self._dialect_splice_count > 100000:
+            raise RuntimeError("Dialect splice count exceeded (possible self-referential payload)")
+        data = _relocate_payload(base, 0, self.pc)
+        self.bytecode[self.pc:self.pc] = data
+
     def _exec_opcode(self, opcode):
         """Execute a single opcode (expanded to cover all ops for parallel threads)."""
         # Handle the small subset directly; for others, inline the same logic as run()
@@ -627,6 +739,12 @@ class sVM:
                 print(val)
         elif opcode == OpCode.POP:
             self.stack.pop()
+        elif opcode == OpCode.DIALECT:
+            idx = self.bytecode[self.pc]; self.pc += 1
+            payload_bytes, payload_consts = self.constants[idx]
+            if not isinstance(payload_consts, (list, tuple)):
+                payload_consts = []
+            self._splice_payload(idx, payload_bytes, payload_consts)
         elif opcode == OpCode.DUP:
             self.stack.append(self.stack[-1])
         elif opcode == OpCode.ADD:

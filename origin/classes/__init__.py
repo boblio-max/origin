@@ -1,4 +1,5 @@
 from .base_classes import *
+from .dialect_classes import *
 from .literal_classes import *
 from .assign_classes import *
 from .operator_classes import *

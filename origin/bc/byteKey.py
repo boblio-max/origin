@@ -80,3 +80,4 @@ class OpCode:
     FLOOR        = 0x4F
     CEIL         = 0x50
     CUBE         = 0x51
+    DIALECT      = 0x52

@@ -776,6 +776,29 @@ class Compiler:
             dst_name_idx = self.add_constant(node.dst)
             self.emit(OpCode.COPY, dst_name_idx, src_name_idx)
 
+        elif isinstance(node, DialectNode):
+            if node.origin_source is not None:
+                # Scalable path: expand the mapped Origin source inline so it
+                # shares this program's constants table and control flow.
+                # Matching is disabled while parsing the expansion, otherwise a
+                # broad template (e.g. "$n:$v") would re-match the substituted
+                # concrete source (e.g. "let x:int = 5") and recurse forever.
+                from .. import dialect as _dialect
+                _prev_enabled = _dialect.enabled()
+                _dialect.set_enabled(False)
+                try:
+                    sub_tokens = lex([node.origin_source])
+                    sub_ast = Parser(sub_tokens).program()
+                finally:
+                    _dialect.set_enabled(_prev_enabled)
+                for stmt in sub_ast.statements:
+                    self.compile(stmt)
+            elif node.bytecode is not None:
+                # Legacy path: precompiled payload rides as a tuple constant;
+                # the SVM runs it via the DIALECT opcode.
+                idx = self.add_constant((list(node.bytecode), list(node.constants or [])))
+                self.emit(OpCode.DIALECT, idx)
+
         elif isinstance(node, ProgramNode):
             self.emit(OpCode.HALT)
             

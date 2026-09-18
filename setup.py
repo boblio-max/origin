@@ -2,12 +2,13 @@
 
 setup(
     name="origin-or",
-    version="1.7.27",
+    version="1.7.28",
     description="The Origin programming language",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     author="Nikhil Mahankali",
     packages=find_packages(),
+    package_data={"origin": ["origin.toml", "origin_bytecode.toml"]},
     include_package_data=True,
     python_requires=">=3.10",
     install_requires=[],
