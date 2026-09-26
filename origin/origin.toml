@@ -1,0 +1,10 @@
+# Dialect mappings — add one mapping per line.
+#
+# Each mapping is:  "<origin source>" <sep> "<dialect line>"
+# (replace <sep> with a single underscore character)
+#
+# Example (template; $name captures text, $$ is a literal dollar sign):
+#   "let $n:int = $v"  maps  "$n:$v"   ->   writing  x:5  becomes  let x:int = 5
+#
+# No mappings are shipped by default: this file is empty on purpose so normal
+# Origin code is never intercepted. Edit it to opt in to dialects.

@@ -52,6 +52,18 @@ class BaseParser:
             return tok
         raise self._error(f"Expected {type_}, got {tok.type} ({tok.value})")
 
+    def peek(self):
+        """Return the next code line without consuming it."""
+        new_pos = self.pos
+        parts = []
+        while new_pos < len(self.tokens):
+            tok = self.tokens[new_pos]
+            if tok.type in ("NEWLINE", "EOF"):
+                break
+            parts.append(tok.value)          # keep WHITESPACE too
+            new_pos += 1
+        return "".join(parts).strip() 
+
     def eat_line(self):
         string = ""
         while self.current_token().type != "NEWLINE":
@@ -100,4 +112,11 @@ class BaseParser:
         """Skip optional newline tokens."""
         while self.current_token().type == "NEWLINE":
             self.eat("NEWLINE")
+
+    def consume_line(self):
+        """Advance past the current line (through NEWLINE/EOF) without consuming it as code."""
+        while self.pos < len(self.tokens) and self.tokens[self.pos].type not in ("NEWLINE", "EOF"):
+            self.pos += 1
+        if self.pos < len(self.tokens) and self.tokens[self.pos].type == "NEWLINE":
+            self.pos += 1
 

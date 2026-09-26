@@ -147,6 +147,11 @@ class SysMixin:
             prompt = self.generate(node.prompt) if node.prompt else ""
             return f"input({prompt})"
         
+        elif isinstance(node, DialectNode):
+            # Dialect lines are bytecode-only; the AST interpreter cannot
+            # inline them, so they are skipped (pass). Use VM mode for dialects.
+            return "pass"
+
         elif isinstance(node, CommandNode):
             # Generate Python code that runs at runtime, not at compile time.
             # Handle both str and Token storage for command (with or without quotes)

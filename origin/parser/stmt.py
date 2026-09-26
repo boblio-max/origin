@@ -10,6 +10,26 @@ class StmtMixin:
     def statement(self):
         self.skip_newlines()
         line = self.current_token().line
+        # Dialect fast-path: if the peeked source line matches a mapping in
+        # origin.toml, emit a DialectNode placeholder instead of parsing it.
+        # Falls back to the legacy origin_bytecode.toml precompiled table.
+        try:
+            from ..dialect import lookup_origin, lookup_dialect
+            dialect_source = self.peek()
+            origin_source = lookup_origin(dialect_source)
+            legacy = None if origin_source is not None else lookup_dialect(dialect_source)
+        except Exception:
+            origin_source = None
+            legacy = None
+        if origin_source is not None or legacy is not None:
+            self.consume_line()
+            node = DialectNode(
+                dialect_source,
+                origin_source=origin_source,
+                bytecode=legacy[0] if legacy else None,
+                constants=legacy[1] if legacy else None,
+            )
+            return self._set_line(node, line)
         node = self._statement()
         return self._set_line(node, line)
 
@@ -491,6 +511,30 @@ class StmtMixin:
                     min_indent = min(len(l) - len(l.lstrip()) for l in non_empty)
                     lines = [l[min_indent:] if len(l) >= min_indent and l.strip() else l for l in lines]
                 return PyNode("\n".join(lines).strip("\n"))
+
+        if tok.type == "KEYWORD":
+            allowed = {
+                "let", "self", "const", "set", "print", "if", "while",
+                "match", "run", "for", "def", "func", "class", "try",
+                "parallel", "import", "from", "return", "break",
+                "continue", "skip", "pass", "exec", "py",
+                "range", "abs", "floor", "ceil", "accel", "gyro", "temp",
+                "write", "append", "read", "input", "sqrt", "rand_num",
+                "true", "false", "pi", "none", "len", "call",
+                "int", "str", "float", "bool",
+            }
+            if tok.value not in allowed:
+                raise self._error(
+                    f"Unknown keyword '{tok.value}'",
+                    suggestion=f"Got: {self.peek()}",
+                )
+            try:
+                return self.special_expr()
+            except SyntaxError:
+                raise self._error(
+                    f"Unknown keyword '{tok.value}'",
+                    suggestion=f"Got: {self.peek()}",
+                )
 
         return self.special_expr()
 

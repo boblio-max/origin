@@ -28,3 +28,9 @@ Before claiming any task done, you MUST:
 2. Confirm `pip install -r requirements.txt` succeeds (on Windows, expect `RPi.GPIO` to fail — that is acceptable on non-Pi dev boxes; document the skip in the final report).
 3. Boot `python runner.py` against a small example Origin file (e.g. a `print` statement) and confirm it executes.
 4. Report the exact commands run and their outcomes in the final message.
+## GitHub account rule (AGENCY-ACCOUNT-RULE)
+This folder is a PERSONAL project of boblio-max. For ANY GitHub operation
+(gh commands, git push/pull, releases), the active account MUST be
+`boblio-max` — NEVER the Storefront Web agency account.
+Check first: `gh auth status`. If another account is active, run
+`gh auth switch --user boblio-max` before proceeding.
