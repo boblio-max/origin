@@ -1,0 +1,95 @@
+name: origin-regression
+
+# Whenever `origin` gets a commit, re-run the behavioral regression suite
+# against the NEW origin code and email nikhilmahankali56@gmail.com.
+#
+# How it works (two layers, either one is sufficient):
+#   1. Direct run (primary, no extra setup beyond mail secrets): checks out the
+#      public regression suite next to this checkout and runs it with
+#      ORIGIN_REPO = this commit. Emails the summary.
+#   2. Dispatch (centralizes history in the suite repo): fires a
+#      repository_dispatch (origin-push) at boblio-max/origin_regression_suite,
+#      which runs its own `regression` workflow at the new SHA and emails too.
+#      Needs secret REGRESSION_DISPATCH_TOKEN (PAT with Actions read/write on
+#      the suite repo). Best-effort: does not fail this run if unset.
+#
+# Required secrets on THIS repo:
+#   MAIL_USERNAME / MAIL_PASSWORD - Gmail sender + app password (Google Account
+#     > Security > 2-Step Verification > App passwords).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out origin (this commit)
+        uses: actions/checkout@v4
+        with:
+          path: origin-sut
+
+      - name: Check out regression suite
+        uses: actions/checkout@v4
+        with:
+          repository: boblio-max/origin_regression_suite
+          path: origin_regression_suite
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run regression suite against new origin
+        id: suite
+        env:
+          ORIGIN_REPO: ${{ github.workspace }}/origin-sut
+        working-directory: origin_regression_suite
+        run: python run_suite.py --verbose --results-json results.json
+
+      - name: Summarize results
+        if: always()
+        id: summary
+        working-directory: origin_regression_suite
+        run: |
+          if [ -f results.json ]; then
+            python -c "import json; d=json.load(open('results.json')); print(f\"passed={d.get('passed',0)}\"); print(f\"failed={d.get('failed',0)}\")" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=?" >> "$GITHUB_OUTPUT"
+            echo "failed=?" >> "$GITHUB_OUTPUT"
+          fi
+          echo "outcome=${{ steps.suite.outcome }}" >> "$GITHUB_OUTPUT"
+
+      - name: Email results to maintainer
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[regression ${{ steps.suite.outcome }}] origin@${{ github.sha }} — ${{ steps.summary.outputs.passed }} passed, ${{ steps.summary.outputs.failed }} failed"
+          to: nikhilmahankali56@gmail.com
+          from: Origin Regression <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            Origin regression suite finished with outcome: ${{ steps.suite.outcome }}
+
+            Origin commit: ${{ github.sha }} (${{ github.ref_name }})
+            Results:       ${{ steps.summary.outputs.passed }} passed, ${{ steps.summary.outputs.failed }} failed
+            Run:           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Full per-test details are attached (results.json).
+          attachments: origin_regression_suite/results.json
+
+      - name: Dispatch suite-repo run (centralized history, best-effort)
+        if: always()
+        continue-on-error: true
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.REGRESSION_DISPATCH_TOKEN }}
+          repository: boblio-max/origin_regression_suite
+          event-type: origin-push
+          client-payload: '{"sha": "${{ github.sha }}", "ref": "${{ github.ref }}", "repo": "boblio-max/origin"}'
