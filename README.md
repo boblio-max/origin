@@ -1,199 +1,45 @@
 # Origin Programming Language · v1.7.28
 
-[![Status](https://img.shields.io/badge/Status-Stable-success?style=flat-square)](https://docs-origin.onrender.com)
-[![Version](https://img.shields.io/badge/Version-v1.7.28-blue?style=flat-square)](https://docs-origin.onrender.com)
-[![Platform](https://img.shields.io/badge/Platform-Windows-blue?style=flat-square)](https://docs-origin.onrender.com)
+**Origin** is my programming language — English-like syntax, strict typing, hardware-first (GPIO/servo primitives for Raspberry Pi), and the full Python ecosystem underneath. this repo is the stable release: `pip install origin-or` and you're writing `.or` files. dev chaos happens in `origin-dev`; this is the polished snapshot.
 
-**Origin** is a Python/Java-based programming language with a syntax designed to be expressive, English-like, and hardware-first. It enables AI models and developers to produce scalable code with high readability while retaining the full power of the Python ecosystem.
+docs live at [docs-origin.onrender.com](https://docs-origin.onrender.com).
 
-> **Visit the official documentation:** [docs-origin.onrender.com](https://docs-origin.onrender.com)
+## what's new in v1.7.28
 
-> **September 2026 re-issue:** The v1.7.28 release adds **dialect support**, letting foreign-language lines compile through a bundled `origin.toml` table, on top of v1.7.27's modular package layout (lexer, parser, interpreter, classes subpackages) ported from `origin-dev`, with the bytecode VM as the default backend. It retains v1.7.26's import normalization plus v1.7.24's bytecode VM and interpreter stability and v1.7.23's multi-import and transformer library updates. The bytecode VM migration continues on the [`origin-dev`](https://github.com/boblio-max/origin-dev) branch and will ship as v1.8.
+- **dialect support (TOML)** — mix foreign-language lines straight into `.or` programs. each line is looked up in the bundled `origin.toml` (`"<origin source>" _ "<dialect line>"`) and compiled to real Origin before execution, including `$name` template captures (e.g. `"let $n:int = $v" _ "$n:$v"` turns `x:5` into `let x:int = 5`). expansion is inline, sharing constants and control flow.
+- **dialect-aware runner** — `origin/runner.py` preloads `origin.toml`, precompiles exact mappings to `origin_bytecode.toml`, resolves templates at parse time. interpreter mode (`origin i`) skips dialect lines; use default VM mode.
+- fresh `origin.exe` + `OriginInstallerV1.7.28.zip`, carried-over modular layout (lexer/parser/interpreter/classes subpackages) with the bytecode VM as default backend.
 
----
+## quickstart
 
-## What's new in v1.7.28
-
-*   **Dialect support (TOML)**: mix lines from another language straight into a `.or` program. Each line is looked up in the bundled `origin.toml` (`"<origin source>" _ "<dialect line>"`) and compiled to real Origin before execution. Supports `$name` template captures, e.g. `"let $n:int = $v" _ "$n:$v"` turns `x:5` into `let x:int = 5`. Expansion happens inline, sharing the program's constants and control flow.
-*   **Dialect-aware runner**: `origin/runner.py` now loads `origin.toml` from the installed package, precompiles exact mappings to `origin_bytecode.toml`, and resolves templated lines at parse time. Interpreter mode (`origin i`) still skips dialect lines; use the default VM.
-*   **Bundled `origin.toml`**: every install ships the dialect table (`package_data` + `MANIFEST.in`), so dialects work out of the box.
-*   **Fresh binaries**: rebuilt `origin.exe` and `OriginInstallerV1.7.28.zip`.
-*   **Carried from v1.7.27**: modular package layout (lexer, parser, classes, interpreter subpackages), split parser and interpreter, and the bytecode VM as the default backend.
-
----
-
-## Key Features
-
-*   **English-Like Syntax**: Write code that reads like natural language.
-*   **Built-in Library System**: Import `.or` library files with `import calc`, including a math library (`calc.or`) and graph plotting library (`graph.or`).
-*   **Hardware Primitives**: Native, intuitive commands for Raspberry Pi GPIO and ServoKit (PCA9685).
-*   **Strict Typing**: Recommended type annotations (`let x: int = 10`) for predictable state and AI-native safety, with untyped declarations auto-inferred.
-*   **Safe Hardware I/O**: Automatic angle clamping (0-180 degrees) for servos to prevent physical damage.
-*   **Formal Module System**: Professional namespacing and module support (`import math as m`, `from lib import x`).
-*   **Binary Builder**: Compile your Origin scripts into standalone, zero-dependency `.exe` files.
-*   **Modern Logic**: Support for Object-Oriented Programming (classes), `try/except/else`, `parallel` thread blocks, and robust scope management.
-
----
-
-## Installation
-
-### Standalone (Recommended)
-You can now download Origin as a standalone installer for Windows. This is the fastest way to get started.
-
-1. **Download**: [Origin v1.7.28 Stable](https://docs-origin.onrender.com/download.html)
-2. **Install**: Run `secure_install.ps1` with PowerShell.
-3. **Usage**: Open a new terminal and type `origin`.
-
-### Developer / Source
-1. **Clone the repository**:
-   ```powershell
-   git clone https://github.com/boblio-max/origin.git
-   ```
-
-2. **Install Dependencies**:
-   ```powershell
-   pip install -r requirements.txt
-   ```
-
----
-
-## Language Reference
-
-### 1. Variables & Types
-Origin uses `let` for variables and `const` for immutable references. Types are recommended; untyped declarations are auto-inferred.
-
-```origin
-let   x: int    = 10          # Scalar integer
-let   name: str = "Origin"    # String literal
-let   flag: bool = true       # Boolean (lowercase)
-const e: float = 2.71828      # Immutable constant
-let   data: none = none       # None literal
-```
-
-Multiple variables can be declared (and typed) in one statement:
-
-```origin
-let a, b = 1, 2               # Inferred: int, int
-let p, q: int, str = 6, "hi"  # Per-name annotations
-```
-
-Built-in constants and math helpers are available without imports:
-
-```origin
-print pi       # 3.141592653589793
-print abs(-7)  # 7
-```
-
-### 2. Built-in Libraries
-Origin includes a standard library system under `lib/`. Use `import` to load them:
-
-```origin
-import calc
-import graph
-
-# Math utilities
-calc = calc()
-print calc.sqrt(25)
-print calc.pi
-
-# Graph plotting
-graph "My Plot" with {
-    X: color(1,0,0) as "Line A",
-}
-```
-
-### 3. Hardware Control
-Control hardware directly with the `set` namespace and native protocol primitives.
-
-```origin
-# Set Servo 1 to 90 degrees (clamped 0-180)
-set servo.angle 1, 90
-
-# Drive BCM Pin 12 HIGH
-set pin 12, 1
-
-# Parentheseless I2C, SPI, and UART calls
-i2c.read 0x40, 4
-spi.write 0x01
-```
-
-### 4. Data Structures
-```origin
-# Lists
-let tools: list = ["Servo", "GPIO", "I2C"]
-print tools[0]
-
-# Dictionaries (Access via { })
-let config: dict = {"speed": 100, "active": true}
-print config{"speed"}
-
-# Tuples
-let coord: tuple = (10, 20)
-```
-
-### 5. Raw Python Blocks
-Seamlessly bridge the gap between Origin and Python.
-
-```origin
-py {
-    import math
-    import os
-    print("Python process ID:", os.getpid())
-    print("Sine of 90 degrees:", math.sin(math.pi/2))
-}
-```
-
-### 6. Module System
-Origin supports a formal module system for clean namespacing.
-
-```origin
-import math_utils as mu        # Import with alias
-from robotics import drive     # Selective import
-
-print mu.square(10)
-drive(1.0)
-```
-
-### 7. Object-Oriented Programming
-Define classes with fields and methods natively for structured development.
-
-```origin
-class Sensor (pin type) {
-    def read() {
-        return pin
-    }
-}
-```
-
----
-
-Origin scripts use the `.or` extension.
-
-### Running a script:
 ```powershell
-origin main.or
+git clone https://github.com/boblio-max/origin.git
+pip install -r requirements.txt
 ```
 
-### Building a standalone binary:
-```powershell
-origin build main.or
+```origin
+let x: int = 10
+let name: str = "Origin"
+let flag: bool = true
+const e: float = 2.71828
+
+let a, b = 1, 2
+print x + a
 ```
 
----
+```bash
+python -m origin main.or    # bytecode VM (default)
+python -m origin i main.or  # AST interpreter
+```
 
-## Roadmap
+## how it actually works
 
-The following features are currently in development:
-- [ ] **Pattern Matching**: `match` and `case` constructs.
-- [ ] **Advanced Structures**: `struct` and `enum` types.
-- [ ] **Asynchronous I/O**: Native `async` and `await` support.
-- [ ] **Metaprogramming**: `macro` and `inline` definitions.
-- [ ] **Unified IDE**: A dedicated cross-platform IDE for Origin development.
+`origin/` package pipeline: `lexer.py` tokenizes → `parser.py` builds the AST → either `bc/to_byte.py` compiles to bytecode for `bc/svm.py` (the stack VM, default) or the interpreter generates Python and `exec`s it. `dialect.py` + `origin.toml` handle the foreign-line expansion before parsing. `errors.py` gives friendly diagnostics with suggestions instead of raw tracebacks.
 
----
+## features
 
-## License & Contact
+English-like syntax · strict (recommended) type annotations with inference · classes/OOP · `try/except/else` · `parallel` thread blocks · module system (`import math as m`, `from lib import x`) · `.or` library imports (`calc.or`, `graph.or`) · hardware I/O (GPIO, ServoKit/PCA9685 with 0–180° servo clamping) · binary builder (PyInstaller `.exe`) · binary + `install.sh`/`secure_install.ps1` installers.
 
-Distributed under the **MIT License**.
-**Author**: Nikhil Mahankali
-**Contact**: [nikhilmahankali56@gmail.com](mailto:nikhilmahankali56@gmail.com)
+## stack
+
+Python 3.10+, zero runtime deps (extras: Pi/servo libs, pyinstaller for builds). see `requirements.txt`, `setup.py`, `helloworld.or`.
