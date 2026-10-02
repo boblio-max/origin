@@ -6,5 +6,6 @@
 # Example (template; $name captures text, $$ is a literal dollar sign):
 #   "let $n:int = $v"  maps  "$n:$v"   ->   writing  x:5  becomes  let x:int = 5
 #
-# No mappings are shipped by default: this file is empty on purpose so normal
-# Origin code is never intercepted. Edit it to opt in to dialects.
+# Shipped dialect mappings (synced from origin-dev ORIGIN_CODE/origin.toml).
+"let $n:int = $v" _ "$n:$v"
+"print $n" _ "p $n"

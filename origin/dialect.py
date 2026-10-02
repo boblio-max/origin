@@ -179,6 +179,18 @@ def origin_patterns(path=None):
     return _PATTERNS
 
 
+# Lines starting with a core statement keyword are real Origin statements,
+# not dialect sugar: templated mappings (e.g. "$n:$v", which matches any
+# line containing a colon such as open f"C:/..." paths) must not hijack
+# them. Exact mappings still win — they are explicit opt-in lines.
+_STMT_KEYWORDS = frozenset({
+    "let", "const", "print", "write", "append", "read", "open", "input",
+    "if", "elif", "else", "for", "while", "def", "func", "class",
+    "return", "break", "continue", "skip", "pass", "import", "from",
+    "try", "except", "parallel", "exec", "py", "set", "global",
+})
+
+
 def lookup_origin(line, path=None):
     """Map a dialect source line to its origin source, or None.
 
@@ -190,6 +202,9 @@ def lookup_origin(line, path=None):
     exact = origin_mappings(path).get(norm)
     if exact is not None:
         return exact
+    head = norm.split(" ", 1)[0].strip("\"'").lower()
+    if head in _STMT_KEYWORDS:
+        return None
     for regex, origin_tpl, _names in origin_patterns(path):
         m = regex.fullmatch(norm)
         if m:

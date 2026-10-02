@@ -126,6 +126,10 @@ class SysMixin:
             fname = node.file[1:-1] if node.file[:1] in ('"', "'") else node.file
             content = self.generate(node.contents)
             return f"open({repr(fname)}, 'a').write({content})"
+
+        elif isinstance(node, OpenNode):
+            # open <path-expr>, <mode-expr> as <name>  ->  name = open(path, mode)
+            return f"{node.name} = open({self.generate(node.path)}, {self.generate(node.type)})"
         
         elif isinstance(node, LenNode):
             return f"len({self.generate(node.value)})"

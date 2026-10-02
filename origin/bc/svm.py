@@ -528,6 +528,11 @@ class sVM:
                 with open(path, 'a') as f:
                     f.write(content)
 
+            elif opcode == OpCode.OPEN_FILE:
+                mode = self.stack.pop()
+                path = self.stack.pop()
+                self.stack.append(open(path, mode))
+
             elif opcode == OpCode.HARDWARE_CALL:
                 num_args = self.bytecode[self.pc]; self.pc += 1
                 # namespace/method tuple was pushed via PUSH_CONST; pop it

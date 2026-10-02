@@ -81,3 +81,4 @@ class OpCode:
     CEIL         = 0x50
     CUBE         = 0x51
     DIALECT      = 0x52
+    OPEN_FILE    = 0x53

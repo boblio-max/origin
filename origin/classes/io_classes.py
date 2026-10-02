@@ -26,8 +26,13 @@ class CommandNode(ASTNode):
     def __repr__(self):
         return f"CommandNode({self.command!r}, {self.flags!r})"
 
-class OpenNode(ASTNode): 
-    """File open operation."""
+class OpenNode(ASTNode):
+    """File open statement: open <path-expr>, <mode-expr> as <name>.
+
+    ``name`` is the alias the handle is bound to; ``path`` and ``type``
+    (mode, e.g. "r"/"w"/"a") are expression nodes so plain strings,
+    f-strings, variables, and concatenation all work.
+    """
     def __init__(self, name, path, _type):
         super().__init__()
         self.name = name

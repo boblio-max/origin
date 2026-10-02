@@ -512,12 +512,35 @@ class StmtMixin:
                     lines = [l[min_indent:] if len(l) >= min_indent and l.strip() else l for l in lines]
                 return PyNode("\n".join(lines).strip("\n"))
 
+            if tok.value == "open":
+                # open <path-expr>, <mode-expr> as <name>
+                # e.g. open "data.txt", "r" as f
+                self.eat("KEYWORD")
+                path = self.special_expr()
+                self._expect_symbol(",")
+                mode = self.special_expr()
+                as_tok = self.current_token()
+                if as_tok.type != "KEYWORD" or as_tok.value != "as":
+                    raise self._error(
+                        f"Expected 'as' after open mode but got {as_tok.type} ({as_tok.value})",
+                        suggestion='Use: open "file", "r" as f',
+                    )
+                self.eat("KEYWORD")
+                alias_tok = self.current_token()
+                if alias_tok.type != "IDENT":
+                    raise self._error(
+                        f"Expected a variable name after 'as' but got {alias_tok.type} ({alias_tok.value})",
+                        suggestion='Use: open "file", "r" as f',
+                    )
+                name = self.eat("IDENT").value
+                return OpenNode(name, path, mode)
+
         if tok.type == "KEYWORD":
             allowed = {
                 "let", "self", "const", "set", "print", "if", "while",
                 "match", "run", "for", "def", "func", "class", "try",
                 "parallel", "import", "from", "return", "break",
-                "continue", "skip", "pass", "exec", "py",
+                "continue", "skip", "pass", "exec", "py", "open",
                 "range", "abs", "floor", "ceil", "accel", "gyro", "temp",
                 "write", "append", "read", "input", "sqrt", "rand_num",
                 "true", "false", "pi", "none", "len", "call",

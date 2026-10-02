@@ -687,6 +687,16 @@ class Compiler:
             self.compile(node.contents)
             self.emit(OpCode.APPEND_FILE)
 
+        elif isinstance(node, OpenNode):
+            # open <path-expr>, <mode-expr> as <name>
+            # Stack order: path pushed first, mode second (svm pops mode, then path).
+            self.compile(node.path)
+            self.compile(node.type)
+            self.emit(OpCode.OPEN_FILE)
+            self.variable_types[node.name] = "any"
+            idx = self.add_constant(node.name)
+            self.emit(OpCode.STORE_VAR, idx)
+
         elif isinstance(node, ParallelNode):
             # For bytecode VM, delegate to a builtin that handles threading
             code_str = "import threading\n_threads = []\n"

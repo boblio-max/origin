@@ -1,14 +1,16 @@
-# Origin Programming Language · v1.7.28
+# Origin Programming Language · v1.7.30
 
 **Origin** is my programming language — English-like syntax, strict typing, hardware-first (GPIO/servo primitives for Raspberry Pi), and the full Python ecosystem underneath. this repo is the stable release: `pip install origin-or` and you're writing `.or` files. dev chaos happens in `origin-dev`; this is the polished snapshot.
 
 docs live at [docs-origin.onrender.com](https://docs-origin.onrender.com).
 
-## what's new in v1.7.28
+## what's new in v1.7.30
 
 - **dialect support (TOML)** — mix foreign-language lines straight into `.or` programs. each line is looked up in the bundled `origin.toml` (`"<origin source>" _ "<dialect line>"`) and compiled to real Origin before execution, including `$name` template captures (e.g. `"let $n:int = $v" _ "$n:$v"` turns `x:5` into `let x:int = 5`). expansion is inline, sharing constants and control flow.
 - **dialect-aware runner** — `origin/runner.py` preloads `origin.toml`, precompiles exact mappings to `origin_bytecode.toml`, resolves templates at parse time. interpreter mode (`origin i`) skips dialect lines; use default VM mode.
-- fresh `origin.exe` + `OriginInstallerV1.7.28.zip`, carried-over modular layout (lexer/parser/interpreter/classes subpackages) with the bytecode VM as default backend.
+- **`open ... as` statement** — `open "data.txt", "r" as f` binds a file handle (new `OPEN_FILE` opcode `0x53` on the VM, `name = open(path, mode)` in the interpreter). path/mode accept plain strings, f-strings, and variables.
+- **dialect guard** — templated mappings (e.g. `"$n:$v"`) no longer hijack lines starting with a core keyword, so `open f"C:/..."` paths and typed declarations compile as real statements.
+- fresh `origin.exe` + `OriginInstallerV1.7.30.zip`, carried-over modular layout (lexer/parser/interpreter/classes subpackages) with the bytecode VM as default backend.
 
 ## quickstart
 
