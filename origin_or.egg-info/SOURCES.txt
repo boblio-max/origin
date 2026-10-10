@@ -6,6 +6,7 @@ origin/__main__.py
 origin/dialect.py
 origin/errors.py
 origin/origin.toml
+origin/origin_bytecode.toml
 origin/runner.py
 origin/bc/__init__.py
 origin/bc/byteKey.py
